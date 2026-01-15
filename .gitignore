@@ -1,0 +1,38 @@
+# Build artifacts
+.build/
+build-beta/
+build-lite/
+build-bundled/
+*.app/
+*.dSYM/
+
+# Swift Package Manager
+.swiftpm/
+*.xcodeproj
+xcuserdata/
+
+# Xcode
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Build logs
+*.log
+build-*.log
+
+# Icon generation artifacts
+*.iconset/
+
+# Test files
+*_Test.pdf
+Grammar_Test.pdf
+
+# Temporary files
+*.tmp
+*.temp

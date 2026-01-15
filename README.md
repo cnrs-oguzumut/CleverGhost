@@ -1,0 +1,154 @@
+# CleverGhost
+
+**AI-Powered PDF Toolkit for macOS**
+
+CleverGhost is an intelligent PDF processing application that combines powerful compression, research tools, and AI-driven document analysis in one beautiful macOS app.
+
+## ✨ Features
+
+### 🎨 Modern Design
+- Beautiful gradient title with Apple's liquid design language
+- Clean, intuitive interface optimized for macOS
+- Dark mode support
+
+### 🗜️ Compress PDF
+- **Basic Mode**: Quick compression with preset quality levels (Screen, eBook, Printer, Prepress, Default)
+- **Pro Mode**: Advanced control with custom DPI, image quality, and optimization settings
+
+### 🛠️ PDF Tools
+- **Merge PDFs**: Combine multiple PDFs into one
+- **Split PDFs**: Extract specific pages or ranges
+- **Security**: Password protection and encryption
+
+### 🤖 AI Assistance (Requires macOS Tahoe/26.0+)
+Powered by Apple's on-device FoundationModels API:
+
+- **AI Chat**: Interactive Q&A with your PDF documents
+- **Smart Finder**: Intelligent search across document content
+- **Grammar Check**: Advanced grammar analysis with structured output
+  - Page selection support (e.g., "1-5" or "1,3,5")
+  - Multi-encoding support for international documents
+  - Automatic text chunking for large pages
+- **Multi-Document Intelligence**: Cross-paper analysis and synthesis
+  - Compare insights across multiple papers
+  - Synthesize information from multiple sources
+  - Per-document contribution tracking
+- **Cover Letter Generator**: Automatic academic cover letter generation for journal submissions
+
+### 📚 Researcher Tools
+- **BibTeX Extraction**: Extract bibliographic data from PDFs
+  - AI-powered extraction (macOS 26.0+) with DOI/arXiv lookup
+  - Hybrid mode: AI + online verification
+  - Offline mode: Heuristic parsing
+- **Reference Lookup**: CrossRef and arXiv integration
+- **Smart Renaming**: Automatic file renaming based on metadata
+- **BibTeX Formatting**: Clean, normalize, and format BibTeX entries
+  - Author shortening (et al.)
+  - Journal abbreviation
+  - LaTeX escaping
+  - Duplicate removal
+  - Multiple citation styles (APA, MLA, Chicago, Harvard, IEEE)
+
+## 🎯 Requirements
+
+- **macOS 13.0+** (Ventura or later)
+- **Ghostscript** (automatically detected or install via Homebrew)
+- **macOS 26.0+ (Tahoe)** for AI features (optional but recommended)
+
+## 🚀 Installation
+
+### Option 1: Download Release
+1. Download the latest release from [Releases](https://github.com/cnrs-oguzumut/CleverGhost/releases)
+2. Open the `.app` file
+3. If macOS blocks it, go to System Settings → Privacy & Security → Allow
+
+### Option 2: Build from Source
+```bash
+# Clone the repository
+git clone https://github.com/cnrs-oguzumut/CleverGhost.git
+cd CleverGhost
+
+# Build the app
+./build-beta.sh
+
+# Open the built app
+open "build-beta/CleverGhost Beta.app"
+```
+
+### Installing Ghostscript (Required)
+```bash
+brew install ghostscript
+```
+
+## 💡 Usage
+
+### Compress PDFs
+1. Launch CleverGhost
+2. Select "Compress PDF" mode
+3. Drag & drop PDF files
+4. Choose quality preset or customize settings
+5. Click "Compress"
+
+### AI Features
+1. Ensure you're running macOS 26.0+ (Tahoe)
+2. Select "AI Assistance" mode
+3. Drop your PDF and ask questions
+4. Use Grammar Check for document proofreading
+5. Generate cover letters for journal submissions
+
+### Research Tools
+1. Select "AI Assistance" mode
+2. Navigate to the "Researcher" tab
+3. Drop PDFs to extract BibTeX
+4. Choose extraction mode:
+   - **Hybrid**: AI extraction + online verification (recommended)
+   - **Online**: CrossRef/arXiv lookup only
+   - **Offline**: Local heuristic parsing
+
+## 🔧 Build Scripts
+
+- `build-beta.sh` - Build beta version with all features
+- Outputs to `build-beta/CleverGhost Beta.app`
+
+## 📝 Technical Details
+
+### Architecture
+- Built with SwiftUI for native macOS performance
+- Apple FoundationModels API for on-device AI
+- PDFKit for document manipulation
+- Ghostscript integration for compression
+
+### AI Models
+- Uses `@Generable` structs for structured AI output
+- Temperature control for creativity adjustment
+- Automatic retry logic for reliability
+- Context window management with smart chunking
+
+### BibTeX Extraction
+- Multi-stage extraction pipeline
+- DOI and arXiv ID detection
+- CrossRef API integration
+- Multiple text encoding support (UTF-8, ISO-8859-1, Windows-1252, etc.)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+[Add your license here]
+
+## 🙏 Acknowledgments
+
+- Built on top of Ghostscript for PDF processing
+- Uses Apple's FoundationModels for AI capabilities
+- CrossRef API for bibliographic data
+- arXiv API for preprint metadata
+
+## 📧 Contact
+
+For questions or feedback, please open an issue on GitHub.
+
+---
+
+Made with ❤️ using Swift and SwiftUI
