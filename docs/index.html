@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CleverGhost - AI-Powered PDF Toolkit for macOS</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 80px 20px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #4DD0E1, #9C27B0, #FF4081);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient 3s ease infinite;
+        }
+
+        @keyframes gradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .tagline {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            opacity: 0.95;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        main {
+            background: white;
+            border-radius: 30px;
+            padding: 60px;
+            margin: 40px auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin: 60px 0;
+        }
+
+        .feature {
+            text-align: center;
+            padding: 30px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            transition: transform 0.3s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-10px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .feature h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .feature p {
+            color: #555;
+            font-size: 1rem;
+        }
+
+        .requirements {
+            background: #f8f9fa;
+            padding: 40px;
+            border-radius: 20px;
+            margin: 40px 0;
+        }
+
+        .requirements h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .requirements ul {
+            list-style-position: inside;
+            color: #555;
+        }
+
+        .requirements li {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            margin-top: 60px;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        .section {
+            margin: 60px 0;
+        }
+
+        .section h2 {
+            font-size: 2.5rem;
+            color: #667eea;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CleverGhost</h1>
+            <p class="tagline">AI-Powered PDF Toolkit for macOS</p>
+            <a href="https://github.com/cnrs-oguzumut/CleverGhost/releases" class="cta-button">Download Now</a>
+        </header>
+
+        <main>
+            <section class="section">
+                <h2>✨ Features</h2>
+
+                <div class="features">
+                    <div class="feature">
+                        <div class="feature-icon">🤖</div>
+                        <h3>AI Assistance</h3>
+                        <p>Chat with your PDFs, analyze grammar, and generate cover letters using on-device AI</p>
+                    </div>
+
+                    <div class="feature">
+                        <div class="feature-icon">🗜️</div>
+                        <h3>Smart Compression</h3>
+                        <p>Reduce file size with intelligent quality presets or advanced custom settings</p>
+                    </div>
+
+                    <div class="feature">
+                        <div class="feature-icon">📚</div>
+                        <h3>Research Tools</h3>
+                        <p>Extract BibTeX, lookup references, and analyze multiple documents simultaneously</p>
+                    </div>
+
+                    <div class="feature">
+                        <div class="feature-icon">🛠️</div>
+                        <h3>PDF Tools</h3>
+                        <p>Merge, split, and secure your PDFs with professional-grade features</p>
+                    </div>
+
+                    <div class="feature">
+                        <div class="feature-icon">🧠</div>
+                        <h3>Multi-Doc Intelligence</h3>
+                        <p>Compare and synthesize information across multiple research papers</p>
+                    </div>
+
+                    <div class="feature">
+                        <div class="feature-icon">✍️</div>
+                        <h3>Grammar Check</h3>
+                        <p>Advanced grammar analysis with structured output and page selection support</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="requirements">
+                <h2>📋 Requirements</h2>
+                <ul>
+                    <li><strong>macOS 13.0+</strong> (Ventura or later)</li>
+                    <li><strong>Ghostscript</strong> (install via Homebrew: <code>brew install ghostscript</code>)</li>
+                    <li><strong>macOS 26.0+</strong> (Tahoe) for AI features (optional but recommended)</li>
+                </ul>
+            </section>
+
+            <section class="section">
+                <h2>🚀 Getting Started</h2>
+                <ol style="padding-left: 40px; color: #555; line-height: 2;">
+                    <li>Download CleverGhost from the <a href="https://github.com/cnrs-oguzumut/CleverGhost/releases" style="color: #667eea;">Releases page</a></li>
+                    <li>Install Ghostscript: <code>brew install ghostscript</code></li>
+                    <li>Open CleverGhost and start processing PDFs!</li>
+                </ol>
+            </section>
+
+            <section class="section" style="text-align: center;">
+                <h2>💻 Open Source</h2>
+                <p style="margin: 20px 0; color: #555;">CleverGhost is free and open source. Contributions are welcome!</p>
+                <a href="https://github.com/cnrs-oguzumut/CleverGhost" class="cta-button" style="margin: 20px auto;">View on GitHub</a>
+            </section>
+        </main>
+
+        <footer>
+            <p>Made with ❤️ using Swift and SwiftUI</p>
+            <p style="margin-top: 10px;">
+                <a href="https://github.com/cnrs-oguzumut/CleverGhost">GitHub</a> •
+                <a href="https://github.com/cnrs-oguzumut/CleverGhost/issues">Report Issue</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
