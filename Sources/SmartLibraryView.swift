@@ -24,6 +24,36 @@ struct SmartLibraryView: View {
     // Group PDFs by category
     private var groupedPDFs: [(category: String, pdfs: [GhostPDF])] {
         let filtered = filteredPDFs
+        
+        // If duplicates are detected, group them at the top
+        if !duplicateIDs.isEmpty {
+            let duplicates = filtered.filter { duplicateIDs.contains($0.id) }
+            let nonDuplicates = filtered.filter { !duplicateIDs.contains($0.id) }
+            
+            // Sort duplicates by their Group Index to keep pairs together
+            let sortedDuplicates = duplicates.sorted {
+                let index1 = duplicateMap[$0.id] ?? Int.max
+                let index2 = duplicateMap[$1.id] ?? Int.max
+                
+                if index1 == index2 {
+                    // Within same group, sort by date (older/keeper first)
+                    return ($0.createdAt ?? Date.distantPast) < ($1.createdAt ?? Date.distantPast)
+                }
+                return index1 < index2
+            }
+            
+            // Group the rest normally
+            let groupedRest = Dictionary(grouping: nonDuplicates) { $0.category ?? "Document" }
+            let sortedRest = groupedRest.map { (category: $0.key, pdfs: $0.value) }
+                .sorted { $0.category < $1.category }
+                
+            // Combine: Duplicates First
+            var result = [(category: "Duplicates Review", pdfs: sortedDuplicates)]
+            result.append(contentsOf: sortedRest)
+            return result
+        }
+
+        // Default behavior
         let grouped = Dictionary(grouping: filtered) { $0.category ?? "Document" }
         return grouped.map { (category: $0.key, pdfs: $0.value) }
             .sorted { $0.category < $1.category }
