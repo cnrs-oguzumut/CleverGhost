@@ -84,6 +84,7 @@ struct ContentView: View {
         case compress = "Compress PDF"
         case tools = "PDF Tools"
         case researcher = "AI Assistance"
+        case library = "Smart Library"
 
         var id: String { rawValue }
 
@@ -92,12 +93,14 @@ struct ContentView: View {
             case .compress: return "arrow.down.circle.fill"
             case .tools: return "wrench.and.screwdriver.fill"
             case .researcher: return "sparkles.rectangle.stack.fill"
+            case .library: return "brain.head.profile"
             }
         }
 
         var color: Color {
             switch self {
             case .compress: return .blue
+            case .library: return .purple
             case .tools: return .orange
             case .researcher: return .purple
             }
@@ -108,6 +111,7 @@ struct ContentView: View {
             case .compress: return "Reduce file size with customizable quality settings"
             case .tools: return "Extract images, split, merge, rotate, and more"
             case .researcher: return "AI-powered Q&A, summaries, and bibliography tools"
+            case .library: return "AI-powered document organization and smart categorization"
             }
         }
     }
@@ -285,6 +289,8 @@ struct ContentView: View {
                                 selectedTab = 2 // Tools tab
                             case .researcher:
                                 selectedTab = 5 // AI tab
+                            case .library:
+                                selectedTab = 0 // Library has no tabs
                             }
                         }
                     }
@@ -373,10 +379,13 @@ struct ContentView: View {
                 if selectedMainMode == nil {
                     modeSelectionView
                 } else {
-                    fileListArea
+                    // Only show file list in non-library modes
+                    if selectedMainMode != .library {
+                        fileListArea
+                    }
 
-                    // Show only relevant tabs based on selected mode
-                    if let mode = selectedMainMode {
+                    // Show only relevant tabs based on selected mode (hide for library)
+                    if let mode = selectedMainMode, mode != .library {
                         Picker("Mode", selection: $selectedTab) {
                             switch mode {
                             case .compress:
@@ -389,6 +398,8 @@ struct ContentView: View {
                             case .researcher:
                                 Text("AI").tag(5)
                                 Text("Bibliography").tag(6)
+                            case .library:
+                                EmptyView() // Library has no tabs
                             }
                         }
                         .pickerStyle(.segmented)
@@ -481,6 +492,11 @@ struct ContentView: View {
                             .allowsHitTesting(selectedTab == 6)
                         }
 
+                        // Smart Library mode
+                        if selectedMainMode == .library {
+                            SmartLibraryView()
+                        }
+
                         // BibTeX tab enabled
                         BibTeXFormatterView(
                             selectedFiles: $selectedFiles,
@@ -491,8 +507,8 @@ struct ContentView: View {
                         .allowsHitTesting(selectedTab == 7)
                     }
                 
-                // Hide compression progress bar in Researcher (6) and BibTeX (7) tabs
-                if isCompressing && selectedTab != 6 && selectedTab != 7 {
+                // Hide compression progress bar in Researcher (6), BibTeX (7), and Library modes
+                if isCompressing && selectedTab != 6 && selectedTab != 7 && selectedMainMode != .library {
                     VStack {
                         ProgressView(value: totalProgress)
                             .progressViewStyle(.linear)
@@ -503,8 +519,8 @@ struct ContentView: View {
                     .padding(.horizontal, 24)
                 }
 
-                // Hide status message in Researcher (6) and BibTeX (7) tabs
-                if !statusMessage.isEmpty && selectedTab != 6 && selectedTab != 7 {
+                // Hide status message in Researcher (6), BibTeX (7), and Library modes
+                if !statusMessage.isEmpty && selectedTab != 6 && selectedTab != 7 && selectedMainMode != .library {
                     Text(statusMessage)
                         .font(.system(size: 13))
                         .foregroundColor(statusIsError ? Color(red: 248/255, green: 113/255, blue: 113/255) : Color(red: 74/255, green: 222/255, blue: 128/255))
@@ -512,8 +528,8 @@ struct ContentView: View {
                         .padding(.horizontal, 24)
                 }
 
-                    // Hide the compress button on AI tab, Researcher tab, and BibTeX tab
-                    if selectedTab != 5 && selectedTab != 6 && selectedTab != 7 {
+                    // Hide the compress button on AI tab, Researcher tab, BibTeX tab, and Library
+                    if selectedTab != 5 && selectedTab != 6 && selectedTab != 7 && selectedMainMode != .library {
                         Button(action: performAction) {
                             Text(actionButtonTitle)
                                 .font(.system(size: 16, weight: .semibold))
