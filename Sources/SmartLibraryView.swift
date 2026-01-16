@@ -662,7 +662,7 @@ struct SmartLibraryView: View {
     private func checkForDuplicates() {
         Task {
             do {
-                let (count, report, _, allIDs, groups) = try libraryManager.scanForDuplicates(context: modelContext)
+                let (count, report, _, allIDs, groups) = try await libraryManager.scanForDuplicates(context: modelContext)
                 
                 await MainActor.run {
                     duplicateCount = count
@@ -692,14 +692,16 @@ struct SmartLibraryView: View {
     }
     
     private func cleanDuplicates() {
-        do {
-            let cleanedCount = try libraryManager.cleanDuplicates(context: modelContext)
-            duplicateIDs.removeAll()
-            duplicateMap.removeAll()
-            duplicateCount = 0
-            duplicateReport = ""
-        } catch {
-            print("Failed to clean duplicates: \(error)")
+        Task {
+            do {
+                let cleanedCount = try await libraryManager.cleanDuplicates(context: modelContext)
+                duplicateIDs.removeAll()
+                duplicateMap.removeAll()
+                duplicateCount = 0
+                duplicateReport = ""
+            } catch {
+                print("Failed to clean duplicates: \(error)")
+            }
         }
     }
     

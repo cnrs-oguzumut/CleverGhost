@@ -379,7 +379,7 @@ class GhostLibraryManager: ObservableObject {
     }
     
     // Returns (count of duplicates to delete, report string, list of duplicates, allDuplicateIDs, groupedIDs)
-    func scanForDuplicates(context: ModelContext) throws -> (count: Int, report: String, list: [GhostPDF], allIDs: Set<UUID>, groups: [[UUID]]) {
+    func scanForDuplicates(context: ModelContext) async throws -> (count: Int, report: String, list: [GhostPDF], allIDs: Set<UUID>, groups: [[UUID]]) {
         // Fetch all PDFs
         let descriptor = FetchDescriptor<GhostPDF>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
         let allPDFs = try context.fetch(descriptor)
@@ -407,32 +407,113 @@ class GhostLibraryManager: ObservableObject {
             try? context.save()
             print("🔄 Updated hashes for \(updatedCount) files.")
         }
-        
-        // 2. Group by Hash
+
+        // 2. Data structures
         var duplicatesToDelete: [GhostPDF] = []
+        var summaryLines: [String] = []
         var duplicateGroups: [String: [GhostPDF]] = [:]
-        
+
         for pdf in allPDFs {
             guard let hash = pdf.fileHash, !hash.isEmpty else { continue }
             duplicateGroups[hash, default: []].append(pdf)
         }
-        
+
         // 3. Identify Duplicates (Keep oldest/first in list)
-        var summaryLines: [String] = []
-        
-        // A. Hash Duplicates (Strict)
+
+        // A. RAG Semantic Content Match (First Check - Most Comprehensive)
+        // This catches duplicates with different file hashes but same semantic content
+        if #available(macOS 26.0, *) {
+            print("🔍 Running RAG semantic duplicate detection...")
+
+            // Only check PDFs with text content
+            let pdfsWithText = allPDFs.filter {
+                guard let text = $0.textPreview, !text.isEmpty else { return false }
+                return text.count > 100 // Skip very short texts
+            }
+
+            let totalComparisons = pdfsWithText.count * (pdfsWithText.count - 1) / 2
+            print("  📊 Will perform \(totalComparisons) RAG comparisons for \(pdfsWithText.count) PDFs")
+
+            var comparisonCount = 0
+
+            for i in 0..<pdfsWithText.count {
+                let pdfA = pdfsWithText[i]
+                if processedIDs.contains(pdfA.id) { continue }
+
+                guard let textA = pdfA.textPreview else { continue }
+
+                // Optimize: Use only first 2000 characters for faster comparison
+                // Normalize: Remove excessive whitespace and newlines
+                let normalizedA = textA.prefix(2000)
+                    .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let shortTextA = String(normalizedA)
+
+                // Compare against later PDFs to avoid redundant checks
+                for j in (i + 1)..<pdfsWithText.count {
+                    let pdfB = pdfsWithText[j]
+                    if processedIDs.contains(pdfB.id) { continue }
+
+                    guard let textB = pdfB.textPreview else { continue }
+
+                    // Optimize: Use only first 2000 characters, normalized
+                    let normalizedB = textB.prefix(2000)
+                        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    let shortTextB = String(normalizedB)
+
+                    comparisonCount += 1
+
+                    // Log progress every 50 comparisons
+                    if comparisonCount % 50 == 0 {
+                        print("  📈 Progress: \(comparisonCount)/\(totalComparisons)")
+                    }
+
+                    // Use RAG engine to compare semantic similarity
+                    // Run on background thread to avoid blocking
+                    let similarity = await Task.detached {
+                        RAGEngine.shared.compareDocuments(text1: shortTextA, text2: shortTextB)
+                    }.value
+
+                    // Threshold: 60% of chunks match with >85% cosine similarity
+                    if similarity > 0.60 {
+                        // Found semantic duplicates!
+                        let sorted = [pdfA, pdfB].sorted { ($0.createdAt ?? Date.distantPast) < ($1.createdAt ?? Date.distantPast) }
+                        let keeper = sorted[0]
+                        let duplicate = sorted[1]
+
+                        duplicatesToDelete.append(duplicate)
+                        processedIDs.insert(pdfA.id)
+                        processedIDs.insert(pdfB.id)
+                        allDuplicateIDs.insert(pdfA.id)
+                        allDuplicateIDs.insert(pdfB.id)
+                        duplicateGroupsList.append([keeper.id, duplicate.id])
+
+                        summaryLines.append("- [RAG Semantic] \"\(keeper.displayName)\" is \(Int(similarity * 100))% similar to \"\(duplicate.displayName)\"")
+
+                        print("  ✓ Found duplicate: \(keeper.displayName) ≈ \(duplicate.displayName) (\(Int(similarity * 100))%)")
+                    }
+                }
+            }
+
+            print("  ✅ RAG: \(comparisonCount) comparisons, found \(duplicatesToDelete.count) duplicates")
+        }
+
+        // B. Hash Duplicates (Exact File Match)
+        var hashDuplicateCount = 0
         for (_, pdfs) in duplicateGroups {
             if pdfs.count > 1 {
                  let sorted = pdfs.sorted { ($0.createdAt ?? Date.distantPast) < ($1.createdAt ?? Date.distantPast) }
-                 
+
                  let toDelete = Array(sorted.dropFirst())
                  duplicatesToDelete.append(contentsOf: toDelete)
-                 
-                 // Mark ALL as processed to prevent double-detection in semantic search
+                 hashDuplicateCount += toDelete.count
+
+                 // Mark ALL as processed to prevent double-detection
                  pdfs.forEach { processedIDs.insert($0.id) }
                  // Add ALL to duplicate list for highlighting (both keeper and duplicates)
                  pdfs.forEach { allDuplicateIDs.insert($0.id) }
-                 
+
                  let keeper = sorted.first!
 
                  // Add this group to the groups list
@@ -441,45 +522,56 @@ class GhostLibraryManager: ObservableObject {
                  summaryLines.append("- [Exact Match] \"\(keeper.ghostTitle ?? keeper.originalFilename)\" has \(toDelete.count) copies")
             }
         }
-        
-        // B. Content Fingerprint (New) - Check if text content is identical
+        if hashDuplicateCount > 0 {
+            print("  ✅ Hash: Found \(hashDuplicateCount) exact duplicates")
+        }
+
+        // C. Content Fingerprint - Check if text content is identical via hash
         var textContentGroups: [Int: [GhostPDF]] = [:] // key: text hash
-        
+        var contentDuplicateCount = 0
+
         for pdf in allPDFs {
             if processedIDs.contains(pdf.id) { continue }
             guard let text = pdf.textPreview, !text.isEmpty else { continue }
-            
-            // Normalize text and hash it
-            let normalized = text.prefix(2000).filter { !$0.isWhitespace }.lowercased()
-            if normalized.count < 100 { continue } // Skip very short scanning errors
-            
+
+            // Normalize text: remove whitespace, lowercase, hash first 2000 chars
+            // This catches reformatted/compressed PDFs with identical content
+            let normalized = text.prefix(2000)
+                .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+                .lowercased()
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if normalized.count < 100 { continue } // Skip very short texts
+
             let hash = normalized.hashValue
             textContentGroups[hash, default: []].append(pdf)
         }
-        
+
         for (_, pdfs) in textContentGroups {
             if pdfs.count > 1 {
                 let sorted = pdfs.sorted { ($0.createdAt ?? Date.distantPast) < ($1.createdAt ?? Date.distantPast) }
-                
+
                 let toDelete = Array(sorted.dropFirst())
                 duplicatesToDelete.append(contentsOf: toDelete)
-                
+                contentDuplicateCount += toDelete.count
+
                 pdfs.forEach { processedIDs.insert($0.id) }
                 pdfs.forEach { allDuplicateIDs.insert($0.id) }
                 duplicateGroupsList.append(pdfs.map { $0.id })
-                
+
                 let keeper = sorted.first!
                 summaryLines.append("- [Content Match] \"\(keeper.ghostTitle ?? keeper.originalFilename)\" has \(toDelete.count) copies")
             }
         }
-        
-        
-        // C. Semantic / Title Similarity
-        // Checks leftovers against ALL files (including already processed ones) to catch stragglers
-        
+        if contentDuplicateCount > 0 {
+            print("  ✅ Content: Found \(contentDuplicateCount) text duplicates")
+        }
+
+        // D. Title Similarity (Fallback)
         let leftovers = allPDFs.filter { !processedIDs.contains($0.id) }
         var visitedTitles = Set<UUID>()
-        
+        var titleDuplicateCount = 0
+
         if let embedding = NLEmbedding.sentenceEmbedding(for: .english) {
             
             for pdfA in leftovers {
@@ -525,24 +617,29 @@ class GhostLibraryManager: ObservableObject {
                 if let match = bestMatch {
                     // Match found - pdfA duplicates match
                     duplicatesToDelete.append(pdfA)
+                    titleDuplicateCount += 1
+
                     processedIDs.insert(pdfA.id)
                     allDuplicateIDs.insert(pdfA.id)
                     visitedTitles.insert(pdfA.id)
-                    
+
                     // Also verify we haven't already reported this group via the match
                     if !processedIDs.contains(match.id) {
                         // Match is a keeper (mostly), but we need to highlight it
                         allDuplicateIDs.insert(match.id)
                         processedIDs.insert(match.id) // Mark match as processed too so it doesn't search for duplicates!
                     }
-                    
+
                     duplicateGroupsList.append([match.id, pdfA.id])
-                    
+
                     summaryLines.append("- [Similar] \"\(titleA)\" ~ \"\(match.ghostTitle ?? "")\"")
                 }
             }
         }
-        
+        if titleDuplicateCount > 0 {
+            print("  ✅ Title: Found \(titleDuplicateCount) similar titles")
+        }
+
         // Report logic
         let finalReport = """
         Scanned \(allPDFs.count) files.
@@ -553,9 +650,9 @@ class GhostLibraryManager: ObservableObject {
         return (duplicatesToDelete.count, finalReport, duplicatesToDelete, allDuplicateIDs, duplicateGroupsList)
     }
     
-    func cleanDuplicates(context: ModelContext) throws -> Int {
+    func cleanDuplicates(context: ModelContext) async throws -> Int {
         // Reuse the exact same logic as scan to ensure we delete exactly what we reported
-        let (_, _, toDelete, _, _) = try scanForDuplicates(context: context)
+        let (_, _, toDelete, _, _) = try await scanForDuplicates(context: context)
         
         var deletedCount = 0
         for pdf in toDelete {

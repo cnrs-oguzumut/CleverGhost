@@ -48,6 +48,10 @@ Powered by Apple's on-device FoundationModels API:
   - LaTeX escaping
   - Duplicate removal
   - Multiple citation styles (APA, MLA, Chicago, Harvard, IEEE)
+- **Smart Library with Duplicate Detection**: AI-powered duplicate PDF detection
+  - 4-tier detection pipeline for comprehensive coverage
+  - Handles compressed, reformatted, and renamed duplicates
+  - Semantic content analysis with text normalization
 
 ## 🎯 Requirements
 
@@ -162,6 +166,35 @@ brew install ghostscript
 - DOI and arXiv ID detection
 - CrossRef API integration
 - Multiple text encoding support (UTF-8, ISO-8859-1, Windows-1252, etc.)
+
+### Duplicate Detection Pipeline
+CleverGhost uses a 4-tier detection system to catch duplicates with different levels of modifications:
+
+**A. RAG Semantic Content Match** (First Check - Most Comprehensive)
+- Compares first 2000 characters using semantic embeddings
+- Detects duplicates even when compressed, reformatted, or OCR'd differently
+- Uses Apple's NaturalLanguage framework for embeddings
+- Text normalization: collapses whitespace, trims formatting
+- Threshold: 60% similarity (0.85 cosine similarity per chunk)
+- Requires macOS 26.0+
+
+**B. Hash Match** (Exact Duplicates)
+- SHA-256 hash comparison
+- Catches byte-for-byte identical files
+- Fastest method for exact matches
+
+**C. Content Fingerprint** (Text-level Duplicates)
+- Compares normalized text content
+- Catches identical text with different metadata or minor formatting
+- Same text normalization as RAG method
+- Threshold: 95% similarity
+
+**D. Title Similarity** (Fallback)
+- Levenshtein distance on document titles
+- Catches renamed files with similar titles
+- Threshold: 85% similarity
+
+This multi-tier approach ensures comprehensive duplicate detection while maintaining performance.
 
 ## 🤝 Contributing
 
