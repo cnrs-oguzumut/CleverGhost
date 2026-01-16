@@ -565,6 +565,34 @@ class GhostLibraryManager: ObservableObject {
         
         return deletedCount
     }
+    
+    // Scans the SmartLibrary/files folder and removes any file that is NOT associated with a database record.
+    func reconstructLibrary(context: ModelContext) throws -> Int {
+        // 1. Get all expected file paths from DB
+        let descriptor = FetchDescriptor<GhostPDF>()
+        let allPDFs = try context.fetch(descriptor)
+        
+        let expectedFilenames = Set(allPDFs.map { URL(fileURLWithPath: $0.realFilePath).lastPathComponent })
+        
+        // 2. Scan directory
+        let libraryFiles = try fileManager.contentsOfDirectory(at: libraryURL, includingPropertiesForKeys: nil)
+        
+        var deletedCount = 0
+        
+        // 3. Delete orphans
+        for fileURL in libraryFiles {
+            if fileURL.pathExtension.lowercased() == "pdf" {
+                let filename = fileURL.lastPathComponent
+                if !expectedFilenames.contains(filename) {
+                    try? fileManager.removeItem(at: fileURL)
+                    print("🧹 Pruned orphan file: \(filename)")
+                    deletedCount += 1
+                }
+            }
+        }
+        
+        return deletedCount
+    }
 }
 
 extension String {

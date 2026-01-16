@@ -94,6 +94,11 @@ struct SmartLibraryView: View {
             if libraryManager.isProcessing {
                 processingIndicator
             }
+            
+            // Bulk Actions Toolbar
+            if !selectedPDFIDs.isEmpty {
+                bulkActionsBar
+            }
         }
         .background(isDarkMode ? Color.black : Color.white)
         // Global Keyboard Shortcuts
@@ -214,6 +219,26 @@ struct SmartLibraryView: View {
                         label: "AI Temperature",
                         description: "Controls creativity in document analysis"
                     )
+                    
+                    Divider()
+                    
+                    Text("Maintenance")
+                        .font(.headline)
+                        
+                    Button(action: {
+                        reconstructLibrary()
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                            Text("Reconstruct Library")
+                            Spacer()
+                        }
+                        .padding(8)
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Scans the library folder and deletes any files that are not in the app database.")
                 }
                 .padding()
                 .frame(width: 300)
@@ -229,6 +254,11 @@ struct SmartLibraryView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Your library is clean! No duplicate files were found.")
+        }
+        .alert("Library Maintenance", isPresented: $showingReconstructionAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(reconstructionResult ?? "")
         }
     }
 
@@ -308,6 +338,10 @@ struct SmartLibraryView: View {
                 }
                 .padding()
                 .id(duplicateCount) // Force refresh when duplicates change
+            }
+            .onTapGesture {
+                selectedPDFIDs.removeAll()
+                lastSelectedID = nil
             }
             
             // Drop target overlay
@@ -443,6 +477,73 @@ struct SmartLibraryView: View {
         }
         .padding()
         .background(isDarkMode ? Color(NSColor.controlBackgroundColor) : Color(NSColor.windowBackgroundColor))
+    }
+
+    // MARK: - Bulk Actions
+    
+    private var bulkActionsBar: some View {
+        HStack(spacing: 16) {
+            Text("\(selectedPDFIDs.count) Selected")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Spacer()
+            
+            Button(action: {
+                bulkRenameSelected()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.cursor")
+                    Text("Rename to Match Title")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: {
+                deleteSelected()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash")
+                    Text("Delete")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.red)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: {
+                // Clear selection
+                selectedPDFIDs.removeAll()
+                lastSelectedID = nil
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(Color.black.opacity(0.85))
+        .cornerRadius(12)
+        .padding(.horizontal)
+        .padding(.bottom, 12)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.spring(), value: selectedPDFIDs.isEmpty)
+    }
+    
+    private func bulkRenameSelected() {
+        let selectedDocs = allPDFs.filter { selectedPDFIDs.contains($0.id) }
+        for pdf in selectedDocs {
+            libraryManager.renameFileToMatchTitle(pdf, context: modelContext)
+        }
     }
 
     // MARK: - Actions
@@ -595,9 +696,24 @@ struct SmartLibraryView: View {
             let cleanedCount = try libraryManager.cleanDuplicates(context: modelContext)
             duplicateIDs.removeAll()
             duplicateMap.removeAll()
-            // success animation or toast could go here
+            duplicateCount = 0
+            duplicateReport = ""
         } catch {
             print("Failed to clean duplicates: \(error)")
+        }
+    }
+    
+    @State private var reconstructionResult: String? = nil
+    @State private var showingReconstructionAlert = false
+
+    private func reconstructLibrary() {
+        do {
+            let count = try libraryManager.reconstructLibrary(context: modelContext)
+            reconstructionResult = "Library reconstruction complete.\n\nRemoved \(count) orphan file(s) that were taking up space but not in your library."
+            showingReconstructionAlert = true
+        } catch {
+            reconstructionResult = "Failed to reconstruct library: \(error.localizedDescription)"
+            showingReconstructionAlert = true
         }
     }
 
