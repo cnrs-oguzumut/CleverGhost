@@ -14,7 +14,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -30,8 +31,15 @@
         }
 
         @keyframes gradient {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
         }
 
         .gradient-bg {
@@ -67,41 +75,40 @@
             <span class="text-xl font-bold tracking-tight gradient-text">CleverGhost</span>
         </div>
         <div class="flex items-center gap-6">
-            <a href="#ai-features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">AI Features</a>
+            <a href="#ai-features" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">AI
+                Features</a>
             <a href="#workflows" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Workflows</a>
-            <a href="#download" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Download</a>
-            <a href="https://github.com/cnrs-oguzumut/CleverGhost"
-                class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">GitHub</a>
+            <a href="#privacy" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Privacy</a>
+            <a href="#support" class="text-sm font-medium text-gray-600 hover:text-gray-900 transition">Support</a>
+
         </div>
     </nav>
 
     <!-- Hero -->
     <header class="max-w-6xl mx-auto px-6 pt-16 pb-24 text-center">
-        <div class="inline-flex items-center gap-2 px-4 py-2 mb-8 text-sm font-medium text-white ai-gradient rounded-full">
+        <div
+            class="inline-flex items-center gap-2 px-4 py-2 mb-8 text-sm font-medium text-white ai-gradient rounded-full">
             <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
             Powered by Apple Intelligence • macOS 26.0+
         </div>
 
         <h1 class="text-6xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
-            AI meets PDF.<br>
-            <span class="gradient-text">All on your Mac.</span>
+            Your AI Research Assistant.<br>
+            <span class="gradient-text">Private by Design.</span>
         </h1>
 
         <p class="text-xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
-            The first AI-native PDF toolkit that respects your privacy. Chat with documents, extract research citations,
-            check grammar, and compress files using on-device Apple Intelligence.
+            Chat with documents, extract citations, check grammar, and analyze research papers using on-device Apple
+            Intelligence.
+            All your data stays on your Mac.
         </p>
 
         <div id="download" class="flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap mb-6">
-            <a href="https://github.com/cnrs-oguzumut/CleverGhost/releases"
-                class="px-8 py-4 ai-gradient text-white font-semibold rounded-xl text-lg hover:opacity-90 transition shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transform hover:-translate-y-0.5 flex-1 md:flex-none text-center min-w-[240px]">
-                Download for Free
-                <span class="block text-xs font-normal text-white/80 mt-1">macOS 13.0+ (AI features: 26.0+)</span>
-            </a>
-            <a href="https://github.com/cnrs-oguzumut/CleverGhost"
-                class="px-8 py-4 bg-white border-2 border-gray-200 text-gray-900 font-semibold rounded-xl text-lg hover:bg-gray-50 transition shadow-sm flex-1 md:flex-none text-center min-w-[200px]">
-                View on GitHub
-            </a>
+            <div
+                class="px-8 py-4 bg-gray-900 text-white font-semibold rounded-xl text-lg shadow-lg flex-1 md:flex-none text-center min-w-[240px]">
+                Coming Soon to Mac App Store
+                <span class="block text-xs font-normal text-gray-400 mt-1">macOS 13.0+ (AI features: 26.0+)</span>
+            </div>
         </div>
 
         <p class="text-sm text-gray-500">Free & Open Source • No subscriptions, no uploads, no tracking</p>
@@ -114,63 +121,83 @@
                 <div class="text-5xl mb-4">🧠</div>
                 <h2 class="text-4xl font-bold mb-4 text-white">Built for the AI Era</h2>
                 <p class="text-xl text-white/80 max-w-2xl mx-auto">
-                    Powered by Apple's FoundationModels API, CleverGhost brings ChatGPT-level intelligence directly to your PDFs—completely private and offline.
+                    Powered by Apple's FoundationModels API, CleverGhost brings powerful on-device intelligence to your
+                    documents—completely private and offline.
                 </p>
             </div>
 
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">💬</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">💬
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">AI Chat</h3>
                     <p class="text-white/80 leading-relaxed">
-                        Ask questions about your documents. Get instant, context-aware answers powered by on-device AI. Works offline.
+                        Ask questions about your documents. Get instant, context-aware answers powered by on-device AI.
+                        Works offline.
                     </p>
                 </div>
 
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">✍️</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">✍️
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">Grammar Check</h3>
                     <p class="text-white/80 leading-relaxed">
-                        Advanced grammar analysis with structured output. Select specific pages (1-5, 1,3,5) and get detailed corrections with explanations.
+                        Advanced grammar analysis with structured output. Select specific pages (1-5, 1,3,5) and get
+                        detailed corrections with explanations.
                     </p>
                 </div>
 
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">📚</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">📚
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">Multi-Document Intelligence</h3>
                     <p class="text-white/80 leading-relaxed">
-                        Compare and synthesize information across multiple research papers. Cross-reference sources automatically.
+                        Compare and synthesize information across multiple research papers. Cross-reference sources
+                        automatically.
                     </p>
                 </div>
 
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">🔬</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">🔬
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">BibTeX Extraction</h3>
                     <p class="text-white/80 leading-relaxed">
-                        AI-powered citation extraction with DOI/arXiv lookup. Hybrid mode combines AI intelligence with online verification.
+                        AI-powered citation extraction with DOI/arXiv lookup. Hybrid mode combines AI intelligence with
+                        online verification.
                     </p>
                 </div>
 
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">✉️</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">✉️
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">Cover Letter Generator</h3>
                     <p class="text-white/80 leading-relaxed">
-                        Generate professional academic cover letters for journal submissions. AI reads your abstract and creates tailored letters.
+                        Generate professional academic cover letters for journal submissions. AI reads your abstract and
+                        creates tailored letters.
                     </p>
                 </div>
 
-                <div class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
-                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">🔍</div>
+                <div
+                    class="bg-white/10 backdrop-blur-lg p-8 rounded-2xl border border-white/20 hover:bg-white/15 transition">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl mb-5">🔍
+                    </div>
                     <h3 class="text-xl font-bold mb-3 text-white">Smart Finder</h3>
                     <p class="text-white/80 leading-relaxed">
-                        Intelligent semantic search across your documents. Find concepts, not just keywords. Understands context.
+                        Intelligent semantic search across your documents. Find concepts, not just keywords. Understands
+                        context.
                     </p>
                 </div>
             </div>
 
             <div class="mt-12 p-6 bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 text-center">
                 <p class="text-white/90 font-medium">
-                    🔒 <strong>100% Private:</strong> All AI processing happens on your Mac using Apple's FoundationModels. Your documents never leave your device.
+                    🔒 <strong>100% Private:</strong> All AI processing happens on your Mac using Apple's
+                    FoundationModels. Your documents never leave your device.
                 </p>
             </div>
         </div>
@@ -189,7 +216,8 @@
             <!-- Workflow 1: AI Assistance -->
             <div class="workflow-card bg-white p-10 rounded-2xl border-2 border-purple-200 shadow-lg mb-12">
                 <div class="flex items-center gap-4 mb-6">
-                    <div class="w-16 h-16 ai-gradient rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
+                    <div
+                        class="w-16 h-16 ai-gradient rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
                         1
                     </div>
                     <div>
@@ -254,7 +282,8 @@
                     </h4>
                     <p class="text-gray-700 mb-3">
                         Drop multiple research papers and ask CleverGhost to synthesize findings across all documents.
-                        The AI identifies contributions from each paper and provides a comprehensive analysis with source attribution.
+                        The AI identifies contributions from each paper and provides a comprehensive analysis with
+                        source attribution.
                     </p>
                     <div class="flex items-center gap-2 text-sm text-purple-700 font-medium">
                         <span>✓</span> Cross-paper comparison
@@ -267,7 +296,8 @@
 
                 <div class="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-100">
                     <p class="text-sm text-gray-600 text-center">
-                        <strong>Perfect for:</strong> Literature reviews, thesis research, studying, fact-checking, academic writing
+                        <strong>Perfect for:</strong> Literature reviews, thesis research, studying, fact-checking,
+                        academic writing
                     </p>
                 </div>
             </div>
@@ -275,7 +305,8 @@
             <!-- Workflow 2: Research Tools -->
             <div class="workflow-card bg-white p-10 rounded-2xl border-2 border-blue-200 shadow-lg mb-12">
                 <div class="flex items-center gap-4 mb-6">
-                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
+                    <div
+                        class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
                         2
                     </div>
                     <div>
@@ -289,7 +320,8 @@
                         <div class="text-3xl mb-3">🔬</div>
                         <h4 class="font-bold mb-2">AI Extraction</h4>
                         <p class="text-sm text-gray-700">
-                            Drop PDFs and let AI extract bibliographic metadata automatically. Works with DOI and arXiv IDs.
+                            Drop PDFs and let AI extract bibliographic metadata automatically. Works with DOI and arXiv
+                            IDs.
                         </p>
                     </div>
 
@@ -297,7 +329,8 @@
                         <div class="text-3xl mb-3">🌐</div>
                         <h4 class="font-bold mb-2">Hybrid Verification</h4>
                         <p class="text-sm text-gray-700">
-                            Combine AI extraction with CrossRef/arXiv online lookup for maximum accuracy and completeness.
+                            Combine AI extraction with CrossRef/arXiv online lookup for maximum accuracy and
+                            completeness.
                         </p>
                     </div>
 
@@ -314,28 +347,36 @@
                     <h4 class="font-bold text-lg mb-4">Step-by-Step Process:</h4>
                     <div class="grid md:grid-cols-2 gap-4">
                         <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">1</div>
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                                1</div>
                             <div>
                                 <p class="font-medium">Drag & Drop PDFs</p>
                                 <p class="text-sm text-gray-600">Select multiple research papers</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">2</div>
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                                2</div>
                             <div>
                                 <p class="font-medium">Choose Extraction Mode</p>
                                 <p class="text-sm text-gray-600">Hybrid, Online, or Offline</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">3</div>
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                                3</div>
                             <div>
                                 <p class="font-medium">AI Extracts Metadata</p>
                                 <p class="text-sm text-gray-600">Author, title, journal, year, DOI</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-3">
-                            <div class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">4</div>
+                            <div
+                                class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                                4</div>
                             <div>
                                 <p class="font-medium">Export BibTeX</p>
                                 <p class="text-sm text-gray-600">Ready for LaTeX, Overleaf, Zotero</p>
@@ -350,7 +391,8 @@
                             <span>📝</span> Smart Renaming
                         </h5>
                         <p class="text-sm text-gray-600">
-                            Automatically rename files using extracted metadata: <code class="bg-white px-1 rounded">Smith_2024_DeepLearning.pdf</code>
+                            Automatically rename files using extracted metadata: <code
+                                class="bg-white px-1 rounded">Smith_2024_DeepLearning.pdf</code>
                         </p>
                     </div>
                     <div class="bg-cyan-50 p-4 rounded-lg border border-cyan-100">
@@ -358,14 +400,16 @@
                             <span>✉️</span> Cover Letters
                         </h5>
                         <p class="text-sm text-gray-600">
-                            Generate professional journal submission letters. AI reads your abstract and creates tailored content.
+                            Generate professional journal submission letters. AI reads your abstract and creates
+                            tailored content.
                         </p>
                     </div>
                 </div>
 
                 <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <p class="text-sm text-gray-600 text-center">
-                        <strong>Perfect for:</strong> Building bibliographies, managing citations, academic publishing, literature organization
+                        <strong>Perfect for:</strong> Building bibliographies, managing citations, academic publishing,
+                        literature organization
                     </p>
                 </div>
             </div>
@@ -373,7 +417,8 @@
             <!-- Workflow 3: PDF Tools -->
             <div class="workflow-card bg-white p-10 rounded-2xl border-2 border-orange-200 shadow-lg">
                 <div class="flex items-center gap-4 mb-6">
-                    <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
+                    <div
+                        class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center text-3xl text-white font-bold">
                         3
                     </div>
                     <div>
@@ -394,7 +439,8 @@
                             </div>
                             <div class="bg-orange-50 p-4 rounded-lg border border-orange-100">
                                 <p class="font-medium mb-1">Pro Mode</p>
-                                <p class="text-sm text-gray-600">Custom DPI, image quality, color management, font optimization</p>
+                                <p class="text-sm text-gray-600">Custom DPI, image quality, color management, font
+                                    optimization</p>
                             </div>
                         </div>
                     </div>
@@ -451,7 +497,8 @@
 
                 <div class="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-100">
                     <p class="text-sm text-gray-600 text-center">
-                        <strong>Perfect for:</strong> Document preparation, file optimization, security, batch processing
+                        <strong>Perfect for:</strong> Document preparation, file optimization, security, batch
+                        processing
                     </p>
                 </div>
             </div>
@@ -471,13 +518,17 @@
                     <div class="text-3xl mb-4">🧠</div>
                     <h3 class="text-xl font-bold mb-3">Apple FoundationModels</h3>
                     <p class="text-gray-600 mb-4">
-                        Leverages macOS 26.0 (Tahoe) on-device AI with structured output using <code class="bg-white px-2 py-1 rounded text-sm">@Generable</code> structs.
+                        Leverages macOS 26.0 (Tahoe) on-device AI with structured output using <code
+                            class="bg-white px-2 py-1 rounded text-sm">@Generable</code> structs.
                         Temperature control, automatic retry logic, and smart context window management.
                     </p>
                     <ul class="text-sm text-gray-600 space-y-2">
-                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Zero network calls</li>
-                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Automatic text chunking</li>
-                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Session pre-warming for speed</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Zero network calls
+                        </li>
+                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Automatic text
+                            chunking</li>
+                        <li class="flex items-center gap-2"><span class="text-purple-500">✓</span> Session pre-warming
+                            for speed</li>
                     </ul>
                 </div>
 
@@ -485,11 +536,14 @@
                     <div class="text-3xl mb-4">👻</div>
                     <h3 class="text-xl font-bold mb-3">Ghostscript Engine</h3>
                     <p class="text-gray-600 mb-4">
-                        Industry-standard PDF processing with precise DPI control, superior compression ratios, and advanced features.
+                        Industry-standard PDF processing with precise DPI control, superior compression ratios, and
+                        advanced features.
                     </p>
                     <ul class="text-sm text-gray-600 space-y-2">
-                        <li class="flex items-center gap-2"><span class="text-orange-500">✓</span> Professional compression</li>
-                        <li class="flex items-center gap-2"><span class="text-orange-500">✓</span> Multi-encoding support</li>
+                        <li class="flex items-center gap-2"><span class="text-orange-500">✓</span> Professional
+                            compression</li>
+                        <li class="flex items-center gap-2"><span class="text-orange-500">✓</span> Multi-encoding
+                            support</li>
                         <li class="flex items-center gap-2"><span class="text-orange-500">✓</span> Batch processing</li>
                     </ul>
                 </div>
@@ -497,27 +551,114 @@
 
             <div class="mt-8 p-6 bg-gray-100 rounded-xl text-center">
                 <p class="text-sm text-gray-600">
-                    <span class="font-medium">Requirements:</span> macOS 13.0+ for basic features • macOS 26.0+ (Tahoe) for AI •
+                    <span class="font-medium">Requirements:</span> macOS 13.0+ for basic features • macOS 26.0+ (Tahoe)
+                    for AI •
                     <code class="bg-white px-2 py-1 rounded text-xs ml-1">brew install ghostscript</code>
                 </p>
             </div>
         </div>
     </section>
+    <!-- Privacy & Security -->
+    <section id="privacy" class="py-24 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-4xl font-bold mb-6">Privacy is not a feature.<br><span class="gradient-text">It's a
+                            foundation.</span></h2>
+                    <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                        CleverGhost was built from the ground up to respect your data. Your research, documents, and
+                        conversations never leave your Mac.
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 flex-shrink-0">
+                                ✓</div>
+                            <div>
+                                <h4 class="font-bold">On-Device AI</h4>
+                                <p class="text-gray-600">All processing is done locally using Apple Intelligence.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 flex-shrink-0">
+                                ✓</div>
+                            <div>
+                                <h4 class="font-bold">No Data Collection</h4>
+                                <p class="text-gray-600">We don't track your usage or collect any personal information.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 flex-shrink-0">
+                                ✓</div>
+                            <div>
+                                <h4 class="font-bold">Open Source Transparency</h4>
+                                <p class="text-gray-600">Our code is open for anyone to audit and verify.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl mb-2">📜</div>
+                        <h3 class="text-2xl font-bold">Open Source & Secure</h3>
+                    </div>
+                    <p class="text-gray-600 mb-6 text-center">
+                        CleverGhost is licensed under the <strong>AGPLv3</strong> license. It uses
+                        <strong>Ghostscript</strong> for professional PDF processing, ensuring both power and
+                        transparency.
+                    </p>
+                    <div class="flex flex-col gap-3">
+                        <a href="https://github.com/cnrs-oguzumut/CleverGhost/blob/main/LICENSE"
+                            class="w-full py-3 bg-gray-900 text-white text-center font-semibold rounded-xl hover:bg-gray-800 transition">View
+                            AGPLv3 License</a>
+                        <a href="https://www.ghostscript.com/license.html"
+                            class="w-full py-3 border border-gray-200 text-center font-semibold rounded-xl hover:bg-gray-50 transition">Ghostscript
+                            Licensing</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
+    <!-- Support -->
+    <section id="support" class="py-24 bg-white border-t border-gray-100">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <h2 class="text-4xl font-bold mb-6">Need help?</h2>
+            <p class="text-xl text-gray-600 mb-10">
+                Whether you've found a bug, have a feature request, or just need guidance, the CleverGhost community is
+                here to help.
+            </p>
+            <div class="grid md:grid-cols-2 gap-6">
+                <a href="https://github.com/cnrs-oguzumut/CleverGhost/issues"
+                    class="p-8 border-2 border-gray-100 rounded-2xl hover:border-purple-200 hover:shadow-lg transition text-left group">
+                    <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">🐛</div>
+                    <h4 class="font-bold text-lg mb-2">Report an Issue</h4>
+                    <p class="text-gray-600 text-sm">Found a bug or something isn't working as expected? Let us know on
+                        GitHub.</p>
+                </a>
+                <a href="https://github.com/cnrs-oguzumut/CleverGhost/discussions"
+                    class="p-8 border-2 border-gray-100 rounded-2xl hover:border-blue-200 hover:shadow-lg transition text-left group">
+                    <div class="text-3xl mb-4 group-hover:scale-110 transition-transform">💬</div>
+                    <h4 class="font-bold text-lg mb-2">Community Support</h4>
+                    <p class="text-gray-600 text-sm">Join the discussion, ask questions, and share your ideas with other
+                        users.</p>
+                </a>
+            </div>
+        </div>
+    </section>
     <!-- CTA -->
     <section class="py-24 ai-gradient">
         <div class="max-w-4xl mx-auto px-6 text-center">
             <h2 class="text-4xl font-bold text-white mb-4">Ready to supercharge your PDF workflow?</h2>
             <p class="text-xl text-white/80 mb-8">Free, open source, and built for privacy.</p>
             <div class="flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap">
-                <a href="https://github.com/cnrs-oguzumut/CleverGhost/releases"
-                    class="px-10 py-4 bg-white text-purple-600 font-semibold rounded-xl text-lg hover:bg-gray-100 transition shadow-lg flex-1 md:flex-none text-center min-w-[240px]">
-                    Download Now
-                </a>
-                <a href="https://github.com/cnrs-oguzumut/CleverGhost"
-                    class="px-10 py-4 bg-white/10 backdrop-blur-lg text-white font-semibold rounded-xl text-lg hover:bg-white/20 transition border-2 border-white/30 flex-1 md:flex-none text-center min-w-[200px]">
-                    View Source Code
-                </a>
+                <div
+                    class="px-10 py-4 bg-white text-gray-900 font-semibold rounded-xl text-lg shadow-lg flex-1 md:flex-none text-center min-w-[240px]">
+                    Coming Soon to Mac App Store
+                </div>
             </div>
         </div>
     </section>
@@ -525,17 +666,9 @@
     <!-- Footer -->
     <footer class="py-12 border-t border-gray-100 bg-white">
         <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p class="text-gray-500 text-sm">© 2026 CleverGhost • Built with ❤️ using Swift & SwiftUI</p>
+            <p class="text-gray-500 text-sm">© 2026 CleverGhost • Licensed under AGPLv3 • Built with ❤️</p>
             <div class="flex items-center gap-6 text-sm">
-                <a href="https://github.com/cnrs-oguzumut/CleverGhost"
-                    class="text-gray-500 hover:text-gray-900 transition flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path fill-rule="evenodd"
-                            d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                            clip-rule="evenodd"></path>
-                    </svg>
-                    GitHub
-                </a>
+
                 <a href="https://github.com/cnrs-oguzumut/CleverGhost/issues"
                     class="text-gray-500 hover:text-gray-900 transition">Report Issue</a>
             </div>

@@ -107,8 +107,41 @@ brew install ghostscript
 
 ## 🔧 Build Scripts
 
-- `build-beta.sh` - Build beta version with all features
+### Beta Build (Development)
+```bash
+./build-beta.sh
+```
 - Outputs to `build-beta/CleverGhost Beta.app`
+- Quick builds for testing and development
+
+### Lite Build (Production)
+```bash
+./build-lite.sh
+```
+- Outputs to `build-lite/CleverGhost.app` and `dist/CleverGhost-1.0.0-Lite.dmg`
+- Requires users to install Ghostscript via Homebrew
+- Smaller download size (~4 MB)
+- Signed with hardened runtime
+
+### Bundled Build (Production)
+```bash
+./build-bundled-notarized.sh
+```
+- Outputs to `build-bundled/CleverGhost.app` and `dist/CleverGhost-1.1.0-Bundled.dmg`
+- Includes Ghostscript and all dependencies (~63 MB)
+- No external dependencies required
+- Signed with hardened runtime
+- Ready for notarization
+
+### Mac App Store Build
+```bash
+./build-mas.sh
+```
+- Outputs to `build-mas/CleverGhost.app` and `dist/CleverGhost-1.1.0-MAS.pkg`
+- Sandboxed build for Mac App Store submission
+- Includes Ghostscript bundle (~56 MB PKG)
+- Signed with Mac App Store certificates
+- Ready for App Store Connect upload
 
 ## 📝 Technical Details
 

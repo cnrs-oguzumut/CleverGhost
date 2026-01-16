@@ -186,11 +186,28 @@ struct ContentView: View {
     @State private var qnaInput: String = ""
     @State private var chatHistory: [(role: String, content: String)] = []
     @State private var isThinking: Bool = false
+    @AppStorage("qnaDeepMode") private var qnaDeepMode: Bool = false
     
     // AI Grammar State
     @State private var grammarText: String = ""
     @State private var isGrammarChecking: Bool = false
     @AppStorage("grammarEnglishMode") private var grammarEnglishMode: GrammarEnglishMode = .american
+    
+    // AI Advanced Summary State
+    @State private var advancedSummaryText: String = ""
+    @State private var isGeneratingAdvancedSummary: Bool = false
+    @State private var advancedSummaryProgress: String = ""
+    @State private var advancedSummaryMetaText: String = ""
+    @State private var advancedSummaryBreakdownText: String = ""
+    @State private var currentAdvancedSummaryTask: Task<Void, Never>?
+    
+    // Cover Letter State
+    @State private var coverLetterJournal: String = "Unknown Journal"
+    @State private var coverLetterText: String = ""
+    
+    // Task Management
+    @State private var currentGrammarTask: Task<Void, Never>?
+    @State private var currentSummaryTask: Task<Void, Never>?
     
     // Researcher Tab State (separate from AI tab)
     @SceneStorage("researcherOutputText") private var researcherOutputText: String = ""
@@ -233,6 +250,8 @@ struct ContentView: View {
         }
     }
 
+    @AppStorage("useOverlappingChunks") private var useOverlappingChunks = false
+    
     // MARK: - Mode Selection View
 
     @ViewBuilder
@@ -594,9 +613,11 @@ struct ContentView: View {
             qnaInput: $qnaInput,
             chatHistory: $chatHistory,
             isThinking: $isThinking,
+            qnaDeepMode: $qnaDeepMode,
             grammarText: $grammarText,
             isGrammarChecking: $isGrammarChecking,
-            grammarEnglishMode: $grammarEnglishMode
+            grammarEnglishMode: $grammarEnglishMode,
+            useOverlappingChunks: $useOverlappingChunks
         )
     }
     
@@ -3789,9 +3810,11 @@ struct AITabView: View {
     @Binding var qnaInput: String
     @Binding var chatHistory: [(role: String, content: String)]
     @Binding var isThinking: Bool
+    @Binding var qnaDeepMode: Bool
     @Binding var grammarText: String
     @Binding var isGrammarChecking: Bool
     @Binding var grammarEnglishMode: GrammarEnglishMode
+    @Binding var useOverlappingChunks: Bool
 
     @AppStorage("isDarkMode_v2") private var isDarkMode = true
     @AppStorage("allowOnlineBibTeX") private var allowOnlineLookup = true
@@ -3801,6 +3824,8 @@ struct AITabView: View {
 
     @State private var activeAction: AIAction? = nil
     @State private var currentSummaryTask: Task<Void, Never>? = nil // Handle for cancellation
+
+
     @State private var extractedText: String = ""
     @State private var showWritingToolsHelp: Bool = false
     @State private var relatedWorkTopic: String = ""
@@ -3812,6 +3837,17 @@ struct AITabView: View {
     // Grammar check enhancements
     @AppStorage("grammarTemperature") private var grammarTemperature: Double = 0.2
     @State private var grammarProgress: String = ""
+
+    // Temperature settings for all AI tools
+    @AppStorage("summaryTemperature") private var summaryTemperature: Double = 0.5
+    @AppStorage("advancedSummaryTemperature") private var advancedSummaryTemperature: Double = 0.4
+    @AppStorage("chatTemperature") private var chatTemperature: Double = 0.7
+    @AppStorage("finderTemperature") private var finderTemperature: Double = 0.3
+    @AppStorage("coverLetterTemperature") private var coverLetterTemperature: Double = 0.6
+
+    // Track previous checked state for single PDF selection
+    @State private var previousCheckedState: [Bool] = []
+
     @State private var grammarCurrentPage: Int = 0
     @State private var grammarTotalPages: Int = 0
     @State private var grammarCorrectionsCount: Int = 0
@@ -3826,8 +3862,18 @@ struct AITabView: View {
     @State private var coverLetterText: String = ""
     @State private var isGeneratingCoverLetter: Bool = false
 
+    // Advanced summary state
+    @State private var advancedSummaryText: String = ""
+    @State private var isGeneratingAdvancedSummary: Bool = false
+    @State private var advancedSummaryProgress: String = ""
+    @State private var currentAdvancedSummaryTask: Task<Void, Never>? = nil
+    @State private var showAdvancedSummaryBreakdown: Bool = false
+    @State private var advancedSummaryMetaText: String = ""  // Stores the meta-summary
+    @State private var advancedSummaryBreakdownText: String = ""  // Stores the section breakdown
+
     enum AIAction: String, CaseIterable, Identifiable {
         case summary = "Summarize"
+        case advancedSummary = "Advanced Summary"
         case chat = "AI Chat"
         case finder = "Finder"
         case grammar = "Grammar"
@@ -3931,7 +3977,25 @@ struct AITabView: View {
                             }
                         }
                         
-                        // 2. Chat
+                        // 2. Advanced Summary
+                        SquareActionCard(
+                            title: "Advanced Summary",
+                            icon: "doc.text.magnifyingglass",
+                            color: .indigo,
+                            isActive: activeAction == .advancedSummary,
+                            isProcessing: isGeneratingAdvancedSummary && activeAction == .advancedSummary,
+                            isDisabled: selectedFiles.filter { $0.isChecked }.isEmpty
+                        ) {
+                            if isGeneratingAdvancedSummary && activeAction == .advancedSummary {
+                                self.currentAdvancedSummaryTask?.cancel()
+                                self.isGeneratingAdvancedSummary = false
+                                self.activeAction = nil
+                            } else {
+                                activeAction = .advancedSummary
+                            }
+                        }
+
+                        // 3. Chat
                         SquareActionCard(
                             title: "AI Chat",
                             icon: "bubble.left.and.bubble.right.fill",
@@ -3992,7 +4056,11 @@ struct AITabView: View {
                             summaryCardView
                             outputAreaView
                         }
-                        
+
+                        if activeAction == .advancedSummary {
+                            advancedSummaryCardView
+                        }
+
                         if activeAction == .chat {
                             chatInterfaceView
                         }
@@ -4025,6 +4093,29 @@ struct AITabView: View {
                 }
             }
         }
+        .onChange(of: activeAction) { newAction in
+            // Enforce single PDF selection for all tools except AI Chat
+            if newAction != .chat && newAction != nil {
+                enforceSinglePDFSelection()
+            }
+        }
+        .onChange(of: selectedFiles.map { $0.isChecked }) { _ in
+            // When user toggles checkboxes, enforce single selection for non-chat tools
+            if activeAction != .chat && activeAction != nil {
+                // Use async to ensure this runs after the toggle completes
+                DispatchQueue.main.async {
+                    enforceSinglePDFSelection()
+                }
+            }
+        }
+        .onChange(of: selectedFiles.count) { _ in
+            // When new files are dropped, enforce single selection for non-chat tools
+            if activeAction != .chat && activeAction != nil {
+                DispatchQueue.main.async {
+                    enforceSinglePDFSelection()
+                }
+            }
+        }
     }
 
     // MARK: - Session Warm-up
@@ -4048,6 +4139,57 @@ struct AITabView: View {
 
         isWarmingUp = false
         grammarProgress = ""
+    }
+
+    // MARK: - Single PDF Selection Enforcement
+    private func enforceSinglePDFSelection() {
+        let currentCheckedState = selectedFiles.map { $0.isChecked }
+        let checkedCount = currentCheckedState.filter { $0 }.count
+
+        // If there's only 0 or 1 checked, no enforcement needed
+        if checkedCount <= 1 {
+            previousCheckedState = currentCheckedState
+            return
+        }
+
+        // Initialize previous state if needed (first time or file count changed)
+        if previousCheckedState.isEmpty || previousCheckedState.count != currentCheckedState.count {
+            // Multiple files are checked but we don't have previous state (e.g., files just dropped)
+            // Keep only the first checked file
+            var foundFirst = false
+            for i in selectedFiles.indices {
+                if selectedFiles[i].isChecked {
+                    if !foundFirst {
+                        foundFirst = true
+                    } else {
+                        selectedFiles[i].isChecked = false
+                    }
+                }
+            }
+            previousCheckedState = selectedFiles.map { $0.isChecked }
+            return
+        }
+
+        // Find which index changed from false to true (newly clicked)
+        var newlyCheckedIndex: Int? = nil
+        for i in selectedFiles.indices {
+            if !previousCheckedState[i] && currentCheckedState[i] {
+                newlyCheckedIndex = i
+                break
+            }
+        }
+
+        // If we found a newly checked PDF and there are multiple checked, enforce single selection
+        if let clickedIndex = newlyCheckedIndex {
+            for i in selectedFiles.indices {
+                if i != clickedIndex && selectedFiles[i].isChecked {
+                    selectedFiles[i].isChecked = false
+                }
+            }
+        }
+
+        // Update previous state
+        previousCheckedState = selectedFiles.map { $0.isChecked }
     }
 
     @ViewBuilder
@@ -4087,6 +4229,13 @@ struct AITabView: View {
                         .help(type.description)
                     }
                 }
+
+                // Temperature Slider for Summary
+                temperatureSlider(
+                    value: $summaryTemperature,
+                    label: "Summary Temperature",
+                    description: "Lower = More factual and concise. Higher = More creative and varied phrasing. Recommended: 0.4-0.6 for summaries."
+                )
 
                 if isSummarizing && activeAction == .summary {
                     Button(action: {
@@ -4246,33 +4395,62 @@ struct AITabView: View {
                         }
                     }
                 }
-                
+
+                // Temperature Slider for Chat
+                temperatureSlider(
+                    value: $chatTemperature,
+                    label: "Chat Temperature",
+                    description: "Lower = More focused and factual responses. Higher = More creative and conversational. Recommended: 0.6-0.8 for chat."
+                )
+
                 // Input Area
-                HStack {
-                    TextField("Ask a question...", text: $qnaInput)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(isThinking || selectedFiles.isEmpty)
-                        .onSubmit {
+                VStack(spacing: 8) {
+                    // Mode toggle
+                    HStack {
+                        Text("Mode:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Picker("", selection: $qnaDeepMode) {
+                            Text("⚡ Fast").tag(false)
+                            Text("🔍 Deep").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 150)
+
+                        Spacer()
+
+                        Text(qnaDeepMode ? "Searches entire document(s)" : "Quick answer from intro/conclusion")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        TextField("Ask a question...", text: $qnaInput)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(isThinking || selectedFiles.isEmpty)
+                            .onSubmit {
+                                Task {
+                                    await performQnA()
+                                }
+                            }
+
+                        Button(action: {
                             Task {
                                 await performQnA()
                             }
+                        }) {
+                            if isThinking {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.blue)
+                            }
                         }
-                    
-                    Button(action: {
-                        Task {
-                            await performQnA()
-                        }
-                    }) {
-                        if isThinking {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.blue)
-                        }
+                        .buttonStyle(.plain)
+                        .disabled(qnaInput.isEmpty || isThinking || selectedFiles.isEmpty)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(qnaInput.isEmpty || isThinking || selectedFiles.isEmpty)
                 }
                 .padding(.top, 8)
             }
@@ -4307,6 +4485,13 @@ struct AITabView: View {
                             .disabled(isSearchingRelatedWork || selectedFiles.isEmpty)
                     }
                 }
+
+                // Temperature Slider for Finder
+                temperatureSlider(
+                    value: $finderTemperature,
+                    label: "Finder Temperature",
+                    description: "Lower = More precise topic matching. Higher = More exploratory connections. Recommended: 0.2-0.4 for finding related work."
+                )
 
                 // Action button
                 Button(action: {
@@ -4405,6 +4590,13 @@ struct AITabView: View {
                         .disabled(isGeneratingCoverLetter)
                 }
 
+                // Temperature Slider for Cover Letter
+                temperatureSlider(
+                    value: $coverLetterTemperature,
+                    label: "Cover Letter Temperature",
+                    description: "Lower = More formal and professional. Higher = More expressive and engaging. Recommended: 0.5-0.7 for cover letters."
+                )
+
                 // Generate Button
                 Button(action: {
                     Task {
@@ -4469,6 +4661,145 @@ struct AITabView: View {
                                 .padding()
                         }
                         .frame(height: 350)
+                        .background(Color(NSColor.textBackgroundColor))
+                        .cornerRadius(6)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    }
+                }
+            }
+            .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private var advancedSummaryCardView: some View {
+        GroupBox {
+            VStack(spacing: 12) {
+                // Instructions
+                Text("Comprehensive summary of entire document")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("Chunks the document, summarizes each section, then creates a flowing meta-summary. Falls back to section-by-section if too large. Perfect for theses and long papers.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Temperature Slider
+                temperatureSlider(
+                    value: $advancedSummaryTemperature,
+                    label: "Summary Temperature",
+                    description: "Lower = More factual summaries. Higher = More creative synthesis. Recommended: 0.3-0.5 for comprehensive summaries."
+                )
+
+                Toggle(isOn: $useOverlappingChunks) {
+                    VStack(alignment: .leading) {
+                        Text("Use Overlapping Chunks")
+                            .font(.system(size: 13, weight: .regular))
+                        Text("Improves context at boundaries but slower.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+
+                // Progress Indicator
+                if isGeneratingAdvancedSummary && activeAction == .advancedSummary {
+                    VStack(spacing: 8) {
+                        if !advancedSummaryProgress.isEmpty {
+                            HStack {
+                                ProgressView().controlSize(.small)
+                                Text(advancedSummaryProgress)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        Button(action: {
+                            self.currentAdvancedSummaryTask?.cancel()
+                            self.isGeneratingAdvancedSummary = false
+                            self.activeAction = nil
+                        }) {
+                            HStack {
+                                Image(systemName: "stop.fill")
+                                Text("Stop Generating")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    }
+                } else {
+                    Button(action: {
+                        if #available(macOS 26.0, *) {
+                            Task {
+                                await generateAdvancedSummary()
+                            }
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "doc.text.magnifyingglass")
+                            Text("Generate Advanced Summary")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.indigo)
+                    .disabled(selectedFiles.filter { $0.isChecked }.isEmpty || isGeneratingAdvancedSummary)
+                }
+
+                // Output Display
+                if !advancedSummaryText.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Advanced Summary")
+                                .font(.subheadline.bold())
+                                .foregroundColor(.primary)
+                            Spacer()
+
+                            // Toggle button (only show if breakdown is available)
+                            if !advancedSummaryBreakdownText.isEmpty {
+                                Button(showAdvancedSummaryBreakdown ? "Show Meta-Summary" : "Show Section Breakdown") {
+                                    showAdvancedSummaryBreakdown.toggle()
+                                }
+                                .font(.caption)
+                                .buttonStyle(.plain)
+                                .foregroundColor(.orange)
+                            }
+
+                            Button("Copy") {
+                                NSPasteboard.general.clearContents()
+                                let textToCopy = showAdvancedSummaryBreakdown ? advancedSummaryBreakdownText : advancedSummaryMetaText
+                                NSPasteboard.general.setString(textToCopy.isEmpty ? advancedSummaryText : textToCopy, forType: .string)
+                            }
+                            .font(.caption)
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+
+                            Button("Clear") {
+                                advancedSummaryText = ""
+                                advancedSummaryMetaText = ""
+                                advancedSummaryBreakdownText = ""
+                                showAdvancedSummaryBreakdown = false
+                            }
+                            .font(.caption)
+                            .buttonStyle(.plain)
+                            .foregroundColor(.secondary)
+                        }
+
+                        ScrollView {
+                            Text(showAdvancedSummaryBreakdown && !advancedSummaryBreakdownText.isEmpty ? advancedSummaryBreakdownText : advancedSummaryText)
+                                .textSelection(.enabled)
+                                .font(.system(.body))
+                                .lineSpacing(4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
+                        }
+                        .frame(height: 400)
                         .background(Color(NSColor.textBackgroundColor))
                         .cornerRadius(6)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.2), lineWidth: 1))
@@ -4775,6 +5106,49 @@ struct AITabView: View {
         return Array(pages).sorted()
     }
 
+    // Helper function to create temperature slider
+    @ViewBuilder
+    private func temperatureSlider(value: Binding<Double>, label: String, description: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("AI Creativity:")
+                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                Spacer()
+                Text("\(value.wrappedValue, specifier: "%.1f")")
+                    .foregroundColor(.primary)
+                    .font(.subheadline.monospacedDigit())
+            }
+
+            Slider(value: value, in: 0.0...1.0, step: 0.1) {
+                Text(label)
+            } minimumValueLabel: {
+                VStack(spacing: 2) {
+                    Text("0.0")
+                        .font(.caption2)
+                    Text("Precise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            } maximumValueLabel: {
+                VStack(spacing: 2) {
+                    Text("1.0")
+                        .font(.caption2)
+                    Text("Creative")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .accentColor(value.wrappedValue < 0.3 ? .green : value.wrappedValue < 0.7 ? .orange : .red)
+
+            Text(description)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.vertical, 4)
+    }
+
     private func performGrammarCheck() {
         let checkedFiles = selectedFiles.filter { $0.isChecked }
         guard let file = checkedFiles.first else { return }
@@ -5030,6 +5404,7 @@ struct AITabView: View {
             }
 
             // Try AI-powered summarization first (macOS 26+)
+            var usedFallback = false
             if #available(macOS 26.0, *) {
                 if let aiSummary = await generateAISummary(text: fullText, type: summaryType) {
                     await MainActor.run {
@@ -5037,10 +5412,13 @@ struct AITabView: View {
                         isSummarizing = false
                     }
                     return
+                } else {
+                    // AI failed, will use fallback
+                    usedFallback = true
                 }
             }
 
-            // Fallback to extractive summarization for older macOS
+            // Fallback to extractive summarization for older macOS or when AI fails
             let sentenceCount: Int
             switch summaryType {
             case .tldr:
@@ -5055,7 +5433,13 @@ struct AITabView: View {
 
             if let summary = summarizePDF(url: file.url, maxSentences: sentenceCount, password: nil) {
                 await MainActor.run {
-                    summaryText = formatSummary(summary, type: summaryType)
+                    let warningNote: String
+                    if usedFallback {
+                        warningNote = "⚠️ Note: AI summarization failed. Using extractive summarization (keyword-based sentence extraction) as fallback.\n\n"
+                    } else {
+                        warningNote = "⚠️ Note: Using extractive summarization (keyword-based sentence extraction). For AI-powered summarization, upgrade to macOS 26.0+.\n\n"
+                    }
+                    summaryText = warningNote + formatSummary(summary, type: summaryType)
                     isSummarizing = false
                 }
             } else {
@@ -5294,9 +5678,9 @@ struct AITabView: View {
         let checkedFiles = selectedFiles.filter { $0.isChecked }
         guard checkedFiles.count > 1 else { return [] }
 
-        // Calculate character budget per document
-        let totalBudget = 2500 // Leave room for prompt and output
-        let budgetPerDoc = min(totalBudget / checkedFiles.count, 1200)
+        // Calculate character budget per document (Fast mode: improved limits)
+        let totalBudget = 8000 // Increased from 2500
+        let budgetPerDoc = min(totalBudget / checkedFiles.count, 3000) // Increased from 1200
 
         var chunks: [DocumentChunk] = []
 
@@ -5346,11 +5730,25 @@ struct AITabView: View {
         guard !qnaInput.isEmpty, !selectedFiles.isEmpty else { return }
 
         let question = qnaInput
+        let useDeepMode = qnaDeepMode
         qnaInput = ""
         chatHistory.append((role: "User", content: question))
         isThinking = true
 
         let checkedFiles = selectedFiles.filter { $0.isChecked }
+
+        // Route to appropriate mode
+        if useDeepMode {
+            await performDeepQnA(question: question, checkedFiles: checkedFiles)
+        } else {
+            await performFastQnA(question: question, checkedFiles: checkedFiles)
+        }
+
+        isThinking = false
+    }
+
+    // MARK: - Fast Q&A Mode
+    func performFastQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
 
         // Multi-document mode
         if checkedFiles.count > 1 {
@@ -5410,11 +5808,11 @@ struct AITabView: View {
             }
 
             var fullText = ""
-            // Limit to first 5 pages and 6000 chars to stay within context window
-            for i in 0..<min(5, doc.pageCount) {
+            // Fast mode: First 10 pages, up to 10K chars
+            for i in 0..<min(10, doc.pageCount) {
                 if let page = doc.page(at: i), let pageText = page.string {
                     fullText += pageText + "\n\n"
-                    if fullText.count > 6000 { break }
+                    if fullText.count > 10000 { break }
                 }
             }
 
@@ -5422,8 +5820,7 @@ struct AITabView: View {
             if #available(macOS 26.0, *) {
                 do {
                     let session = LanguageModelSession()
-                    // Keep prompt minimal to avoid context overflow
-                    let limitedText = String(fullText.prefix(6000))
+                    let limitedText = String(fullText.prefix(10000))
                     let prompt = """
                     Answer this question based on the PDF text below. Be concise.
 
@@ -5442,8 +5839,168 @@ struct AITabView: View {
                 chatHistory.append((role: "System", content: "Q&A requires macOS 26+"))
             }
         }
+    }
 
-        isThinking = false
+    // MARK: - Deep Q&A Mode (Smart Chunk Search)
+    func performDeepQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
+        if #available(macOS 26.0, *) {
+            // Deep mode: chunk entire document(s) and score by relevance
+            if checkedFiles.count > 1 {
+                await performDeepMultiDocQnA(question: question, checkedFiles: checkedFiles)
+            } else {
+                await performDeepSingleDocQnA(question: question, checkedFiles: checkedFiles)
+            }
+        } else {
+            chatHistory.append((role: "System", content: "Deep Q&A mode requires macOS 26+"))
+        }
+    }
+
+    // Deep mode for single document
+    @available(macOS 26.0, *)
+    func performDeepSingleDocQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
+        guard let pdfURL = checkedFiles.first?.url,
+              let doc = PDFDocument(url: pdfURL) else {
+            chatHistory.append((role: "System", content: "Error: Could not load PDF"))
+            return
+        }
+        
+        // 1. Indexing (True RAG)
+        // Clear previous index to ensure fresh state for single-doc query
+        // In a real app, we might cache this by URL, but for now we re-index on demand for simplicity
+        RAGEngine.shared.clearIndex()
+        
+        await MainActor.run {
+             chatHistory.append((role: "System", content: "Thinking..."))
+        }
+
+        for i in 0..<doc.pageCount {
+            if let page = doc.page(at: i), let pageText = page.string {
+                // Determine if we need to clean the text
+                let cleanedPageText = cleanTextForSummarization(pageText)
+                if !cleanedPageText.isEmpty {
+                     await RAGEngine.shared.indexDocument(text: cleanedPageText, sourceName: doc.documentURL?.lastPathComponent ?? "Current Document", pageIndex: i + 1)
+                }
+            }
+        }
+        
+        // 2. Retrieval using Embeddings
+        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(question: question, limit: 10) // Increased limit for better context
+        
+        if relevantChunks.isEmpty {
+            chatHistory.append((role: "System", content: "I couldn't find any relevant sections in the document to answer your question."))
+            return
+        }
+        
+        // 3. Generation with Context
+        var contextPrompt = "Answer the user question based ONLY on the following context snippets from the document.\n\n"
+        var currentLength = contextPrompt.count
+        let maxContextChars = 9000 // Safety limit for prompt construction
+        
+        for (i, chunk) in relevantChunks.enumerated() {
+            let chunkHeader = "Context \(i+1) (Page \(chunk.pageIndex)):\n"
+            let chunkContent = chunkHeader + chunk.text + "\n\n"
+            
+            if currentLength + chunkContent.count < maxContextChars {
+                contextPrompt += chunkContent
+                currentLength += chunkContent.count
+            } else {
+                break // Stop adding chunks if we hit the limit
+            }
+        }
+        
+        contextPrompt += "Question: \(question)\n"
+        contextPrompt += "Answer:"
+        
+        do {
+            let session = LanguageModelSession()
+            let response = try await session.respond(to: contextPrompt)
+            
+            // Format output to show we used RAG
+            var finalAnswer = response.content
+            finalAnswer += "\n\n🔍 **Sources (Smart Search):**\n"
+            let pages = relevantChunks.map { "Page \($0.pageIndex)" }
+            let uniquePages = Set(pages).sorted()
+            finalAnswer += "Found relevant info on: " + uniquePages.joined(separator: ", ")
+            
+            chatHistory.append((role: "Assistant", content: finalAnswer))
+        } catch {
+             chatHistory.append((role: "System", content: "AI Error: \(error.localizedDescription)"))
+        }
+    }
+
+
+
+    // Deep mode for multiple documents
+    @available(macOS 26.0, *)
+    func performDeepMultiDocQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
+        // Clear index for fresh multi-doc search
+        RAGEngine.shared.clearIndex()
+        
+        await MainActor.run {
+             chatHistory.append((role: "System", content: "Thinking..."))
+        }
+
+        // 1. Index all documents
+        for file in checkedFiles {
+            if Task.isCancelled { return }
+            guard let doc = PDFDocument(url: file.url) else { continue }
+
+            for i in 0..<doc.pageCount {
+                if let page = doc.page(at: i), let pageText = page.string {
+                    let cleanedPageText = cleanTextForSummarization(pageText)
+                    if !cleanedPageText.isEmpty {
+                         await RAGEngine.shared.indexDocument(text: cleanedPageText, sourceName: file.url.lastPathComponent, pageIndex: i + 1)
+                    }
+                }
+            }
+        }
+        
+        // 2. Retrieve relevant chunks across ALL documents
+        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(question: question, limit: 15) // Higher limit for multi-doc
+        
+        if relevantChunks.isEmpty {
+            chatHistory.append((role: "System", content: "I couldn't find any relevant sections in the documents to answer your question."))
+            return
+        }
+        
+        // 3. Build Prompt with Source Info
+        var contextPrompt = "Answer the user question by synthesizing information from the following relevant sections across multiple documents.\n\n"
+        var currentLength = contextPrompt.count
+        let maxContextChars = 9000 // Safety limit
+        
+        // Keep track of sources for final citation
+        var uniqueSources: Set<String> = []
+        
+        for (i, chunk) in relevantChunks.enumerated() {
+            let chunkHeader = "Source \(i+1) [\(chunk.sourceName), Page \(chunk.pageIndex)]:\n"
+            let chunkContent = chunkHeader + chunk.text + "\n\n"
+            
+            if currentLength + chunkContent.count < maxContextChars {
+                contextPrompt += chunkContent
+                currentLength += chunkContent.count
+                uniqueSources.insert("\(chunk.sourceName) (Page \(chunk.pageIndex))")
+            } else {
+                break
+            }
+        }
+        
+        contextPrompt += "Question: \(question)\n"
+        contextPrompt += "Answer:"
+        
+        do {
+            let session = LanguageModelSession()
+            let response = try await session.respond(to: contextPrompt)
+            
+            // Format output to show we used RAG
+            var finalAnswer = response.content
+            finalAnswer += "\n\n📚 **Sources (Smart Search):**\n"
+            let sortedSources = uniqueSources.sorted()
+            finalAnswer += sortedSources.joined(separator: ", ")
+            
+            chatHistory.append((role: "Assistant", content: finalAnswer))
+        } catch {
+             chatHistory.append((role: "System", content: "AI Error: \(error.localizedDescription)"))
+        }
     }
 
     // MARK: - Save Conversation
@@ -5661,6 +6218,347 @@ struct AITabView: View {
         }
 
         isGeneratingCoverLetter = false
+    }
+
+    @available(macOS 26.0, *)
+    func generateAdvancedSummary() async {
+        let checkedFiles = selectedFiles.filter { $0.isChecked }
+        guard let file = checkedFiles.first else { return }
+
+        isGeneratingAdvancedSummary = true
+        advancedSummaryText = ""
+        advancedSummaryProgress = "Extracting text from PDF..."
+
+        self.currentAdvancedSummaryTask = Task {
+            if Task.isCancelled { return }
+
+            // Extract full text from PDF
+            guard let pdfDoc = PDFDocument(url: file.url) else {
+                await MainActor.run {
+                    advancedSummaryText = "Error: Could not open PDF file."
+                    isGeneratingAdvancedSummary = false
+                }
+                return
+            }
+
+            var fullText = ""
+            for pageIndex in 0..<pdfDoc.pageCount {
+                if Task.isCancelled { return }
+                if let page = pdfDoc.page(at: pageIndex) {
+                    if let pageText = page.string {
+                        fullText += pageText + "\n\n"
+                    }
+                }
+            }
+
+            guard !fullText.isEmpty else {
+                await MainActor.run {
+                    advancedSummaryText = "Could not extract text from this PDF."
+                    isGeneratingAdvancedSummary = false
+                }
+                return
+            }
+
+            // Clean the text
+            let cleanedText = cleanTextForSummarization(fullText)
+
+            // Split into chunks of ~8000 characters
+            // Split into chunks of ~8000 characters
+            let chunkSize = 8000
+            let overlapSize = useOverlappingChunks ? 1000 : 0
+            
+            var chunks: [String] = []
+            var currentIndex = cleanedText.startIndex
+
+            while currentIndex < cleanedText.endIndex {
+                if Task.isCancelled { return }
+
+                let endIndex = cleanedText.index(currentIndex, offsetBy: chunkSize, limitedBy: cleanedText.endIndex) ?? cleanedText.endIndex
+                let chunk = String(cleanedText[currentIndex..<endIndex])
+                chunks.append(chunk)
+                
+                if endIndex == cleanedText.endIndex {
+                    break
+                }
+                
+                // Advance index by chunkSize - overlap
+                // Ensure we advance at least 1 character to avoid infinite loop
+                let step = max(1, chunkSize - overlapSize)
+                currentIndex = cleanedText.index(currentIndex, offsetBy: step, limitedBy: cleanedText.endIndex) ?? cleanedText.endIndex
+            }
+
+            await MainActor.run {
+                advancedSummaryProgress = "Processing \(chunks.count) chunks..."
+            }
+
+            // Summarize each chunk
+            var chunkSummaries: [String] = []
+
+            for (index, chunk) in chunks.enumerated() {
+                if Task.isCancelled { return }
+
+                await MainActor.run {
+                    advancedSummaryProgress = "Summarizing chunk \(index + 1) of \(chunks.count)..."
+                }
+
+                let chunkPrompt = """
+                Summarize the following section of an academic document. Extract the main points, findings, and key information. Be concise but comprehensive.
+
+                Text:
+                \(chunk)
+
+                Summary:
+                """
+
+                do {
+                    let session = LanguageModelSession()
+                    let response = try await session.respond(to: chunkPrompt)
+                    chunkSummaries.append(response.content)
+                } catch {
+                    print("Error summarizing chunk \(index + 1): \(error)")
+                    chunkSummaries.append("[Could not summarize this section]")
+                }
+            }
+
+            if Task.isCancelled { return }
+
+            // Check if combined summaries fit within context window
+            let combinedSummaries = chunkSummaries.joined(separator: "\n\n")
+            let combinedLength = combinedSummaries.count
+
+            // Context limit: 13,000 characters (~3,250 tokens)
+            // Apple Foundation Models have 4,096 token limit
+            // Reserve ~850 tokens for prompt overhead + output generation
+            let contextLimit = 10000
+
+            if combinedLength <= contextLimit {
+                // Small enough for meta-summary - attempt it
+                await MainActor.run {
+                    advancedSummaryProgress = "Creating cohesive meta-summary..."
+                }
+
+                let metaPrompt = """
+                You are given summaries of different sections of a large academic document. Your task is to synthesize these into a single, coherent, comprehensive summary.
+
+                Section Summaries:
+                \(combinedSummaries)
+
+                Create a well-structured final summary that:
+                1. Introduces the main topic and context
+                2. Covers all key findings and contributions from across the document
+                3. Maintains logical flow and coherence
+                4. Highlights the most important conclusions
+                5. Is comprehensive but readable (aim for 500-800 words)
+
+                Write in clear, flowing paragraphs. Make it engaging and informative.
+
+                Final Summary:
+                """
+
+                do {
+                    let session = LanguageModelSession()
+                    let response = try await session.respond(to: metaPrompt)
+
+                    await MainActor.run {
+                        let header = "📚 Advanced Summary (Full Document Analysis)\n"
+                        let stats = "Document: \(chunks.count) chunks processed → Meta-summary generated\n\n"
+                        advancedSummaryText = header + stats + response.content
+                        isGeneratingAdvancedSummary = false
+                        advancedSummaryProgress = ""
+                    }
+                } catch {
+                    // Meta-summary failed, fall back to chunk display
+                    await MainActor.run {
+                        var output = "📚 Advanced Summary (Full Document Analysis)\n"
+                        output += "Document: \(chunks.count) chunks processed\n"
+                        output += "⚠️ Could not create meta-summary (\(error.localizedDescription)). Showing section summaries:\n\n"
+                        output += "═══════════════════════════════════════════\n\n"
+
+                        for (index, summary) in chunkSummaries.enumerated() {
+                            output += "## Section \(index + 1)\n\n"
+                            output += summary + "\n\n"
+                        }
+
+                        advancedSummaryText = output
+                        isGeneratingAdvancedSummary = false
+                        advancedSummaryProgress = ""
+                    }
+                }
+            } else {
+                // Smart selection: score chunks by importance and select top ones that fit in 13K
+                await MainActor.run {
+                    advancedSummaryProgress = "Selecting most important sections..."
+                }
+
+                // Score each chunk summary
+                struct ScoredChunk {
+                    let index: Int
+                    let summary: String
+                    let score: Double
+                }
+
+                var scoredChunks: [ScoredChunk] = []
+                for (index, summary) in chunkSummaries.enumerated() {
+                    var score = 0.0
+
+                    // 1. Position score (intro and conclusion are important)
+                    let totalChunks = Double(chunkSummaries.count)
+                    let position = Double(index) / totalChunks
+                    if position < 0.15 {  // First 15% (introduction)
+                        score += 5.0
+                    } else if position > 0.85 {  // Last 15% (conclusion)
+                        score += 5.0
+                    } else if position > 0.6 && position < 0.8 {  // Results section
+                        score += 3.0
+                    }
+
+                    // 2. Keyword importance (academic papers)
+                    let importantKeywords = [
+                        "result", "conclusion", "finding", "significant", "demonstrate",
+                        "novel", "propose", "contribute", "achieve", "improve",
+                        "method", "approach", "framework", "model", "algorithm",
+                        "hypothesis", "objective", "aim", "purpose", "goal"
+                    ]
+                    let lowerSummary = summary.lowercased()
+                    for keyword in importantKeywords {
+                        if lowerSummary.contains(keyword) {
+                            score += 0.5
+                        }
+                    }
+
+                    // 3. Length score (more substantial summaries)
+                    let wordCount = summary.split(separator: " ").count
+                    score += Double(wordCount) / 100.0
+
+                    // 4. Statistics/numbers present (results are quantitative)
+                    let hasNumbers = summary.rangeOfCharacter(from: .decimalDigits) != nil
+                    if hasNumbers {
+                        score += 1.0
+                    }
+
+                    scoredChunks.append(ScoredChunk(index: index, summary: summary, score: score))
+                }
+
+                // Sort by score (highest first)
+                scoredChunks.sort { $0.score > $1.score }
+
+                // Greedily select top chunks that fit in 13K
+                var selectedChunks: [ScoredChunk] = []
+                var currentLength = 0
+
+                for chunk in scoredChunks {
+                    let chunkLength = chunk.summary.count + 50  // 50 chars for section header
+                    if currentLength + chunkLength <= contextLimit {
+                        selectedChunks.append(chunk)
+                        currentLength += chunkLength
+                    }
+                }
+
+                // Sort selected chunks back to original order for coherent reading
+                selectedChunks.sort { $0.index < $1.index }
+
+                // Try to create meta-summary from selected chunks
+                if !selectedChunks.isEmpty {
+                    await MainActor.run {
+                        advancedSummaryProgress = "Creating smart meta-summary from \(selectedChunks.count) key sections..."
+                    }
+
+                    var combinedSelectedText = ""
+                    for chunk in selectedChunks {
+                        combinedSelectedText += "Section \(chunk.index + 1):\n\(chunk.summary)\n\n"
+                    }
+
+                    do {
+                        let metaPrompt = """
+                        Create a cohesive, flowing summary by synthesizing the following key sections from an academic document.
+
+                        Write a comprehensive narrative that connects these sections smoothly. Focus on:
+                        1. Main research question and objectives
+                        2. Key methodologies and approaches
+                        3. Important findings and results
+                        4. Main conclusions and contributions
+
+                        Sections to synthesize:
+                        \(combinedSelectedText)
+
+                        Provide a well-structured summary that reads as a single, coherent document.
+                        """
+
+                        let metaSession = LanguageModelSession()
+                        let metaResponse = try await metaSession.respond(to: metaPrompt)
+                        let metaSummary = metaResponse.content
+
+                        await MainActor.run {
+                            // Create meta-summary view
+                            var metaOutput = "📚 Advanced Summary (Smart Analysis)\n"
+                            metaOutput += "Document: \(chunks.count) chunks analyzed\n"
+                            metaOutput += "✨ Selected \(selectedChunks.count) most important sections for comprehensive summary\n"
+
+                            // Show which sections were selected
+                            let sectionIndices = selectedChunks.map { "\($0.index + 1)" }.joined(separator: ", ")
+                            metaOutput += "📊 Sections included: \(sectionIndices)\n\n"
+                            metaOutput += "═══════════════════════════════════════════\n\n"
+                            metaOutput += metaSummary
+
+                            // Create section breakdown view (with scores)
+                            var breakdownOutput = "📚 Advanced Summary (Section Breakdown)\n"
+                            breakdownOutput += "Document: \(chunks.count) chunks analyzed\n"
+                            breakdownOutput += "📋 Showing \(selectedChunks.count) most important sections:\n"
+                            breakdownOutput += "📊 Sections: \(sectionIndices)\n\n"
+                            breakdownOutput += "═══════════════════════════════════════════\n\n"
+
+                            for chunk in selectedChunks {
+                                breakdownOutput += "## Section \(chunk.index + 1) (Score: \(String(format: "%.1f", chunk.score)))\n\n"
+                                breakdownOutput += chunk.summary + "\n\n"
+                            }
+
+                            advancedSummaryMetaText = metaOutput
+                            advancedSummaryBreakdownText = breakdownOutput
+                            advancedSummaryText = metaOutput
+                            isGeneratingAdvancedSummary = false
+                            advancedSummaryProgress = ""
+                        }
+                    } catch {
+                        // Meta-summary failed, fall back to section display only
+                        await MainActor.run {
+                            var output = "📚 Advanced Summary (Section Breakdown)\n"
+                            output += "Document: \(chunks.count) chunks processed\n"
+                            output += "ℹ️ Showing \(selectedChunks.count) most important sections:\n"
+
+                            let sectionIndices = selectedChunks.map { "\($0.index + 1)" }.joined(separator: ", ")
+                            output += "📊 Sections: \(sectionIndices)\n\n"
+                            output += "═══════════════════════════════════════════\n\n"
+
+                            for chunk in selectedChunks {
+                                output += "## Section \(chunk.index + 1) (Score: \(String(format: "%.1f", chunk.score)))\n\n"
+                                output += chunk.summary + "\n\n"
+                            }
+
+                            advancedSummaryText = output
+                            isGeneratingAdvancedSummary = false
+                            advancedSummaryProgress = ""
+                        }
+                    }
+                } else {
+                    // Shouldn't happen, but fallback to showing all sections
+                    await MainActor.run {
+                        var output = "📚 Advanced Summary (Full Document Analysis)\n"
+                        output += "Document: \(chunks.count) chunks processed\n"
+                        output += "ℹ️ Showing all section summaries:\n\n"
+                        output += "═══════════════════════════════════════════\n\n"
+
+                        for (index, summary) in chunkSummaries.enumerated() {
+                            output += "## Section \(index + 1)\n\n"
+                            output += summary + "\n\n"
+                        }
+
+                        advancedSummaryText = output
+                        isGeneratingAdvancedSummary = false
+                        advancedSummaryProgress = ""
+                    }
+                }
+            }
+        }
     }
 
     func saveCoverLetter() {

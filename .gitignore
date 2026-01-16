@@ -3,8 +3,11 @@
 build-beta/
 build-lite/
 build-bundled/
+build-mas/
 *.app/
 *.dSYM/
+dist/
+ghostscript-bundle/
 
 # Swift Package Manager
 .swiftpm/
