@@ -147,9 +147,17 @@ struct SmartLibraryView: View {
                     .padding(.vertical, 6)
                     .background(Color.red)
                     .cornerRadius(16)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
+                
+                // Debug Map Status
+                if !duplicateMap.isEmpty {
+                    Text("Map: \(duplicateMap.count) items")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                        .padding(.leading, 4)
+                }
+                }
 
             Text("\(allPDFs.count) PDFs")
                 .font(.caption)
@@ -266,73 +274,7 @@ struct SmartLibraryView: View {
         ZStack {
             ScrollView {
                 LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
-                    // Persistent header drop zone
-                    Button(action: {
-                        importFiles()
-                    }) {
-                        VStack(spacing: 8) {
-                            Image(systemName: "arrow.down.doc")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("Drag more files here or click to import")
-                                .font(.callout)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(style: StrokeStyle(lineWidth: 2, dash: [10]))
-                                .foregroundColor(.secondary.opacity(0.3))
-                        )
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.bottom, 8)
-
-                    ForEach(groupedPDFs, id: \.category) { group in
-                        Section {
-                            ForEach(group.pdfs) { pdf in
-                                GhostPDFRow(
-                                    pdf: pdf,
-                                    isSelected: selectedPDFIDs.contains(pdf.id),
-                                    duplicateGroupIndex: duplicateGroupIndex(for: pdf.id),
-                                    duplicateColor: duplicateGroupIndex(for: pdf.id).map { colorForGroup($0) },
-                                    onDelete: { deletePDF(pdf) }
-                                )
-                                .onTapGesture {
-                                    handleTap(on: pdf)
-                                }
-                                .contextMenu {
-                                        Button("Open PDF") {
-                                            openPDF(pdf)
-                                        }
-                                        Button("Re-analyze") {
-                                            Task {
-                                                await libraryManager.reanalyzeGhostPDF(pdf, context: modelContext)
-                                            }
-                                        }
-                                        Divider()
-                                        Button("Show in Finder") {
-                                            revealInFinder(pdf)
-                                        }
-                                        Button("Copy Original Name") {
-                                            NSPasteboard.general.clearContents()
-                                            NSPasteboard.general.setString(pdf.originalFilename, forType: .string)
-                                        }
-                                        Button("Rename File to Match Title") {
-                                            libraryManager.renameFileToMatchTitle(pdf, context: modelContext)
-                                        }
-                                        Divider()
-                                        Button("Delete from Library", role: .destructive) {
-                                            deletePDF(pdf)
-                                        }
-                                    }
-                            }
-                        } header: {
-                            CategoryHeader(category: group.category, count: group.pdfs.count)
-                        }
-                    }
+                    pdfListContent
                 }
                 .padding()
             }
@@ -356,6 +298,82 @@ struct SmartLibraryView: View {
         }
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             handleDrop(providers: providers)
+        }
+    }
+    
+    private var pdfListContent: some View {
+        Group {
+            // Persistent header drop zone
+            Button(action: {
+                importFiles()
+            }) {
+                VStack(spacing: 8) {
+                    Image(systemName: "arrow.down.doc")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    Text("Drag more files here or click to import")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(style: StrokeStyle(lineWidth: 2, dash: [10]))
+                        .foregroundColor(.secondary.opacity(0.3))
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
+
+            ForEach(groupedPDFs, id: \.category) { group in
+                Section {
+                    ForEach(group.pdfs) { pdf in
+                        pdfRow(for: pdf)
+                    }
+                } header: {
+                    CategoryHeader(category: group.category, count: group.pdfs.count)
+                }
+            }
+        }
+    }
+
+    private func pdfRow(for pdf: GhostPDF) -> some View {
+        GhostPDFRow(
+            pdf: pdf,
+            isSelected: selectedPDFIDs.contains(pdf.id),
+            duplicateGroupIndex: duplicateGroupIndex(for: pdf.id),
+            duplicateColor: duplicateGroupIndex(for: pdf.id).map { colorForGroup($0) },
+            onDelete: { deletePDF(pdf) }
+        )
+        .onTapGesture {
+            handleTap(on: pdf)
+        }
+        .contextMenu {
+            Button("Open PDF") {
+                openPDF(pdf)
+            }
+            Button("Re-analyze") {
+                Task {
+                    await libraryManager.reanalyzeGhostPDF(pdf, context: modelContext)
+                }
+            }
+            Divider()
+            Button("Show in Finder") {
+                revealInFinder(pdf)
+            }
+            Button("Copy Original Name") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(pdf.originalFilename, forType: .string)
+            }
+            Button("Rename File to Match Title") {
+                libraryManager.renameFileToMatchTitle(pdf, context: modelContext)
+            }
+            Divider()
+            Button("Delete from Library", role: .destructive) {
+                deletePDF(pdf)
+            }
         }
     }
 
@@ -751,9 +769,10 @@ struct GhostPDFRow: View {
         }
     }
 
+
     private var backgroundFill: Color {
         if let color = duplicateColor {
-            return color.opacity(0.3) // Increased from 0.15 for better visibility
+            return color.opacity(0.5) // Much stronger
         } else if isSelected {
             return Color.blue.opacity(0.2)
         } else if isHovering {
@@ -765,7 +784,7 @@ struct GhostPDFRow: View {
 
     private var borderColor: Color {
         if let color = duplicateColor {
-            return color.opacity(0.9) // Increased from 0.6 for stronger border
+            return color // Full opacity border
         } else if isSelected {
             return Color.blue.opacity(0.6)
         } else if isHovering {
