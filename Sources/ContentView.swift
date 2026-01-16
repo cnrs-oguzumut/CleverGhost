@@ -6085,15 +6085,25 @@ struct AITabView: View {
         if #available(macOS 26.0, *) {
             do {
                 let session = LanguageModelSession()
-
                 let prompt: String
+
                 if relatedWorkAutoMode {
                     // Auto mode: analyze the paper to find related work
-                    let contextText = !abstractText.isEmpty ? String(abstractText.prefix(3000)) :
-                                     !introductionText.isEmpty ? String(introductionText.prefix(3000)) :
-                                     String(fullText.prefix(3000))
+                    // Clean text first to remove excess whitespace
+                    let cleanAbstract = cleanTextForSummarization(abstractText)
+                    let cleanIntro = cleanTextForSummarization(introductionText)
+                    let cleanFull = cleanTextForSummarization(fullText)
+                    let cleanRefs = cleanTextForSummarization(referencesText)
+                    let cleanFullSuffix = cleanTextForSummarization(String(fullText.suffix(5000))) 
+                    
+                    // Drastically reduce limits to ensure safety (total < 5000 chars)
+                    // Context: 1000 chars
+                    let contextText = !cleanAbstract.isEmpty ? String(cleanAbstract.prefix(1000)) :
+                                     !cleanIntro.isEmpty ? String(cleanIntro.prefix(1000)) :
+                                     String(cleanFull.prefix(1000))
 
-                    let refsText = !referencesText.isEmpty ? String(referencesText.prefix(8000)) : String(fullText.suffix(8000))
+                    // References: 3500 chars instead of 8000
+                    let refsText = !cleanRefs.isEmpty ? String(cleanRefs.prefix(3500)) : String(cleanFullSuffix.suffix(3500))
 
                     prompt = """
                     Based on this research paper's content, identify and list the most relevant papers from its references.
@@ -6116,16 +6126,13 @@ struct AITabView: View {
                     """
                 } else {
                     // Manual mode: search for specific topic
-                    let refsText = !referencesText.isEmpty ? String(referencesText.prefix(10000)) : String(fullText.suffix(10000))
+                     let cleanRefs = cleanTextForSummarization(referencesText)
+                     let cleanFullSuffix = cleanTextForSummarization(String(fullText.suffix(6000)))
+                     let refsText = !cleanRefs.isEmpty ? String(cleanRefs.prefix(4000)) : String(cleanFullSuffix.suffix(4000))
 
                     prompt = """
                     Find and list papers from the references below that are related to "\(relatedWorkTopic)".
-
-                    For each relevant paper, provide:
-                    - Authors and year
-                    - Title
-                    - Brief explanation of how it relates to \(relatedWorkTopic)
-
+                    
                     REFERENCES:
                     \(refsText)
                     """
