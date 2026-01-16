@@ -277,6 +277,7 @@ struct SmartLibraryView: View {
                     pdfListContent
                 }
                 .padding()
+                .id(duplicateCount) // Force refresh when duplicates change
             }
             
             // Drop target overlay
@@ -687,7 +688,7 @@ struct GhostPDFRow: View {
                 // Title
                 Text(pdf.displayName)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isDarkMode ? .white : .black)
+                    .foregroundColor(titleColor) // Use dynamic title color
                     .lineLimit(1)
 
                 // Metadata
@@ -769,10 +770,16 @@ struct GhostPDFRow: View {
         }
     }
 
+    private var titleColor: Color {
+        if duplicateColor != nil {
+            return .red
+        }
+        return isDarkMode ? .white : .black
+    }
 
     private var backgroundFill: Color {
         if let color = duplicateColor {
-            return color.opacity(0.5) // Much stronger
+            return color.opacity(0.3) // Strong enough to be seen but text readable
         } else if isSelected {
             return Color.blue.opacity(0.2)
         } else if isHovering {
@@ -795,7 +802,7 @@ struct GhostPDFRow: View {
     }
 
     private var borderWidth: CGFloat {
-        duplicateColor != nil ? 3 : 1 // Increased from 2 for thicker border
+        duplicateColor != nil ? 3 : 1 
     }
 
     private var statusIcon: some View {

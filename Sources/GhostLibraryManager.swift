@@ -387,9 +387,9 @@ class GhostLibraryManager: ObservableObject {
         // Data structures for highlighting
         var allDuplicateIDs = Set<UUID>()
         var duplicateGroupsList: [[UUID]] = []
+        var processedIDs = Set<UUID>()
         
         // 1. Force Recalculate Hashes for ALL files to ensure consistency
-        // (This fixes issues where old files have "Hash V1" and new have "Hash V2")
         var updatedCount = 0
         for pdf in allPDFs {
             let url = URL(fileURLWithPath: pdf.realFilePath)
@@ -419,7 +419,6 @@ class GhostLibraryManager: ObservableObject {
         
         // 3. Identify Duplicates (Keep oldest/first in list)
         var summaryLines: [String] = []
-        var processedIDs = Set<UUID>()
         
         // A. Hash Duplicates (Strict)
         for (_, pdfs) in duplicateGroups {
@@ -428,7 +427,11 @@ class GhostLibraryManager: ObservableObject {
                  
                  let toDelete = Array(sorted.dropFirst())
                  duplicatesToDelete.append(contentsOf: toDelete)
-                 toDelete.forEach { processedIDs.insert($0.id) }
+                 
+                 // Mark ALL as processed to prevent double-detection in semantic search
+                 pdfs.forEach { processedIDs.insert($0.id) }
+                 // Add ALL to duplicate list for highlighting (both keeper and duplicates)
+                 pdfs.forEach { allDuplicateIDs.insert($0.id) }
                  
                  let keeper = sorted.first!
 
@@ -439,65 +442,39 @@ class GhostLibraryManager: ObservableObject {
             }
         }
         
-        // B. Semantic Duplicates (Smart) - "Apple AI" Style
-        // Group remaining PDFs by (Title + FileSize) to catch re-saved files
-        var potentialSemanticDupes: [String: [GhostPDF]] = [:]
+        // B. Content Fingerprint (New) - Check if text content is identical
+        var textContentGroups: [Int: [GhostPDF]] = [:] // key: text hash
         
         for pdf in allPDFs {
             if processedIDs.contains(pdf.id) { continue }
+            guard let text = pdf.textPreview, !text.isEmpty else { continue }
             
-            // Key = Title + Size (within 100 bytes tolerance usually, but simplified to exact size for now or loose string)
-            // Let's use Title as primary key
-            if let title = pdf.ghostTitle {
-               potentialSemanticDupes[title, default: []].append(pdf)
-            }
+            // Normalize text and hash it
+            let normalized = text.prefix(2000).filter { !$0.isWhitespace }.lowercased()
+            if normalized.count < 100 { continue } // Skip very short scanning errors
+            
+            let hash = normalized.hashValue
+            textContentGroups[hash, default: []].append(pdf)
         }
         
-        for (title, pdfs) in potentialSemanticDupes {
+        for (_, pdfs) in textContentGroups {
             if pdfs.count > 1 {
-                // Check if they are actually similar size (e.g., within 5%)
-                // This prevents "Invoice 001" and "Invoice 002" (same title structure but different content) from being nuked
-                // But users usually have distinct titles.
-                // Let's group by FileSize variance.
-                
                 let sorted = pdfs.sorted { ($0.createdAt ?? Date.distantPast) < ($1.createdAt ?? Date.distantPast) }
-                // For safety, only auto-delete if file size is very close
                 
-                // We won't auto-delete semantic duplicates yet, just report them?
-                // OR we strictly check file size.
+                let toDelete = Array(sorted.dropFirst())
+                duplicatesToDelete.append(contentsOf: toDelete)
                 
-                // Simple heuristic: If Title is identical AND File Size is within 1KB.
-                var sizeGroups: [Int64: [GhostPDF]] = [:]
-                for pdf in sorted {
-                    // Round to nearest KB
-                    let kb = pdf.fileSize / 1024
-                    sizeGroups[kb, default: []].append(pdf)
-                }
+                pdfs.forEach { processedIDs.insert($0.id) }
+                pdfs.forEach { allDuplicateIDs.insert($0.id) }
+                duplicateGroupsList.append(pdfs.map { $0.id })
                 
-                for (_, similarPDFs) in sizeGroups {
-                    if similarPDFs.count > 1 {
-                         let sorted = similarPDFs.sorted { ($0.createdAt) < ($1.createdAt) }
-
-                         let toDelete = Array(sorted.dropFirst())
-                         duplicatesToDelete.append(contentsOf: toDelete)
-                         toDelete.forEach { processedIDs.insert($0.id) }
-
-                         let keeper = similarPDFs.first!
-                         processedIDs.insert(keeper.id)
-
-                         // Mark ALL files in this group as duplicates
-                         similarPDFs.forEach { allDuplicateIDs.insert($0.id) }
-
-                         // Add this group to the groups list
-                         duplicateGroupsList.append(similarPDFs.map { $0.id })
-
-                         summaryLines.append("- [Smart Match] \"\(title)\" has \(toDelete.count) copies")
-                    }
-                }
+                let keeper = sorted.first!
+                summaryLines.append("- [Content Match] \"\(keeper.ghostTitle ?? keeper.originalFilename)\" has \(toDelete.count) copies")
             }
         }
         
-        // C. Apple AI Semantic Match (NLEmbedding)
+        
+        // C. Semantic / Title Similarity
         // Checks leftovers against ALL files (including already processed ones) to catch stragglers
         
         let leftovers = allPDFs.filter { !processedIDs.contains($0.id) }
@@ -509,17 +486,18 @@ class GhostLibraryManager: ObservableObject {
                 if visitedTitles.contains(pdfA.id) { continue }
                 guard let titleA = pdfA.ghostTitle, !titleA.isEmpty else { continue }
                 
-                // Compare against ALL other PDFs (keepers and leftovers)
-                // We want to find if 'pdfA' is a semantic duplicate of ANY existing file
-                
+                // Compare against ALL other PDFs
                 var bestMatch: GhostPDF? = nil
                 var bestDistance: Double = 1.0
+                var bestStringSimilarity: Double = 0.0
                 
                 for pdfB in allPDFs {
                     if pdfA.id == pdfB.id { continue } // Don't match self
+                    // CRITICAL: Avoid redundancy by skipping if B is already processed/visited as a "source"
+                    // But we DO want to match against keepers.
+                    // The main fix is: if match(A,B) found, mark BOTH as visited so we don't check B against A later.
                     
-                    // Optimization: if pdfB is a 'toDelete' duplicate, skip it. We want to match against Keepers.
-                    // But effectively we just want to find a group.
+                    if visitedTitles.contains(pdfB.id) { continue }
                     
                     guard let titleB = pdfB.ghostTitle, !titleB.isEmpty else { continue }
                     
@@ -531,30 +509,36 @@ class GhostLibraryManager: ObservableObject {
                     }
                     
                     let distance = embedding.distance(between: titleA, and: titleB)
-                    if distance < 0.6 && distance < bestDistance { // Stricter 0.6 threshold
+                    
+                    // Also check pure string similarity
+                    let stringSimilarity = titleA.levenshteinSimilarity(to: titleB)
+                    
+                    if distance < 0.6 && distance < bestDistance {
                          bestMatch = pdfB
                          bestDistance = distance
+                    } else if stringSimilarity > 0.60 && stringSimilarity > bestStringSimilarity {
+                         bestMatch = pdfB
+                         bestStringSimilarity = stringSimilarity
                     }
                 }
                 
                 if let match = bestMatch {
-                    // We found a match!
-                    // pdfA is a duplicate of match.
-                    // Mark pdfA to delete.
+                    // Match found - pdfA duplicates match
                     duplicatesToDelete.append(pdfA)
                     processedIDs.insert(pdfA.id)
                     allDuplicateIDs.insert(pdfA.id)
                     visitedTitles.insert(pdfA.id)
                     
-                    // We need to visually group them.
-                    // If 'match' is already in a group, we should ideally add 'pdfA' to that group.
-                    // For simplicity, we'll just create a new visual pair [match, pdfA].
-                    // The UI handles overlapping groups by picking the first one.
+                    // Also verify we haven't already reported this group via the match
+                    if !processedIDs.contains(match.id) {
+                        // Match is a keeper (mostly), but we need to highlight it
+                        allDuplicateIDs.insert(match.id)
+                        processedIDs.insert(match.id) // Mark match as processed too so it doesn't search for duplicates!
+                    }
                     
-                    allDuplicateIDs.insert(match.id) // Ensure match is highlighted
                     duplicateGroupsList.append([match.id, pdfA.id])
                     
-                    summaryLines.append("- [Semantic Match] \"\(titleA)\" is similar to \"\(match.ghostTitle ?? "")\"")
+                    summaryLines.append("- [Similar] \"\(titleA)\" ~ \"\(match.ghostTitle ?? "")\"")
                 }
             }
         }
@@ -580,5 +564,35 @@ class GhostLibraryManager: ObservableObject {
         }
         
         return deletedCount
+    }
+}
+
+extension String {
+    func levenshteinDistance(to destination: String) -> Int {
+        let sCount = self.count
+        let oCount = destination.count
+        
+        guard sCount != 0 else { return oCount }
+        guard oCount != 0 else { return sCount }
+        
+        var matrix: [[Int]] = Array(repeating: Array(repeating: 0, count: oCount + 1), count: sCount + 1)
+        
+        for i in 0...sCount { matrix[i][0] = i }
+        for j in 0...oCount { matrix[0][j] = j }
+        
+        for i in 1...sCount {
+            for j in 1...oCount {
+                let cost = self[self.index(self.startIndex, offsetBy: i - 1)] == destination[destination.index(destination.startIndex, offsetBy: j - 1)] ? 0 : 1
+                matrix[i][j] = Swift.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost)
+            }
+        }
+        
+        return matrix[sCount][oCount]
+    }
+    
+    func levenshteinSimilarity(to destination: String) -> Double {
+        let distance = self.levenshteinDistance(to: destination)
+        let maxLength = max(self.count, destination.count)
+        return 1.0 - (Double(distance) / Double(maxLength))
     }
 }
