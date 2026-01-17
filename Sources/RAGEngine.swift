@@ -1,66 +1,79 @@
 import Foundation
 import NaturalLanguage
+import SwiftData
 
-@available(macOS 26.0, *)
+@available(macOS 14.0, *)
 class RAGEngine {
     static let shared = RAGEngine()
     
-    struct TextChunk {
-        let text: String
-        let sourceName: String
-        let pageIndex: Int
-        let embedding: [Double]?
-        let id: UUID = UUID()
-    }
-    
-    private var chunks: [TextChunk] = []
+    // Use NLEmbedding for sentence embeddings
     private let embeddingModel = NLEmbedding.sentenceEmbedding(for: .english)
     
     // MARK: - Ingestion
     
-    /// Clear existing index
-    func clearIndex() {
-        chunks = []
-    }
-    
-    /// Process and index a document
-    func indexDocument(text: String, sourceName: String, pageIndex: Int, chunkSize: Int = 250) async {
+    /// Process and index a document (Persistent)
+    @MainActor
+    func indexDocument(text: String, sourceName: String, pageIndex: Int, ghostPDF: GhostPDF? = nil, context: ModelContext, chunkSize: Int = 250) async {
         // Simple overlapping chunker
         let words = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-        let overlap = 100
+        let overlap = 50 // Reduced overlap
         
         var currentIndex = 0
+        var chunkIndex = 0
+        
         while currentIndex < words.count {
             let endIndex = min(currentIndex + chunkSize, words.count)
             let chunkWords = words[currentIndex..<endIndex]
             let chunkText = chunkWords.joined(separator: " ")
             
             // Compute embedding
-            let vector = embeddingModel?.vector(for: chunkText)
+            let vector = embeddingModel?.vector(for: chunkText) ?? []
             
-            let chunk = TextChunk(
+            let chunk = SearchChunk(
                 text: chunkText,
-                sourceName: sourceName,
+                embedding: vector,
                 pageIndex: pageIndex,
-                embedding: vector
+                chunkIndex: chunkIndex,
+                sourceName: sourceName,
+                pdf: ghostPDF
             )
             
-            chunks.append(chunk)
+            context.insert(chunk)
+            if let pdf = ghostPDF {
+                pdf.chunks.append(chunk)
+            }
             
             currentIndex += (chunkSize - overlap)
+            chunkIndex += 1
         }
+        
+        try? context.save()
     }
     
     // MARK: - Retrieval
     
-    /// Find most relevant chunks for a question
-    func retrieveRelevantChunks(question: String, limit: Int = 5) -> [TextChunk] {
+    /// Find most relevant chunks for a question (Persistent)
+    @MainActor
+    func retrieveRelevantChunks(question: String, limit: Int = 5, context: ModelContext, pdfs: [GhostPDF]? = nil) -> [SearchChunk] {
         guard let questionVector = embeddingModel?.vector(for: question) else { return [] }
         
-        // Calculate cosine similarity for all chunks
-        let scoredChunks = chunks.map { chunk -> (TextChunk, Double) in
-            guard let chunkVector = chunk.embedding else { return (chunk, 0.0) }
-            return (chunk, cosineSimilarity(questionVector, chunkVector))
+        // Fetch chunks from DB based on scope
+        let chunks: [SearchChunk]
+        
+        if let targetPDFs = pdfs {
+            // Scope to specific PDFs
+            // Note: SwiftData predicate for relationships can be tricky, retrieving from memory for now 
+            // Better to use the relationship directly
+            chunks = targetPDFs.flatMap { $0.chunks }
+        } else {
+             // Fetch all chunks (Global search)
+             let descriptor = FetchDescriptor<SearchChunk>()
+             chunks = (try? context.fetch(descriptor)) ?? []
+        }
+        
+        // Calculate cosine similarity
+        let scoredChunks = chunks.map { chunk -> (SearchChunk, Double) in
+            return (chunk, cosineSimilarity(questionVector, chunk.embedding))
         }
         
         // Sort by similarity descending

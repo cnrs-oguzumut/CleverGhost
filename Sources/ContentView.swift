@@ -1,7 +1,8 @@
 import SwiftUI
-import UniformTypeIdentifiers
-import Network
 import PDFKit
+import UniformTypeIdentifiers
+import SwiftData
+import Network
 import FoundationModels
 
 // MARK: - Network Monitor
@@ -75,6 +76,7 @@ enum GrammarEnglishMode: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var databaseContext
     @State private var selectedFiles: [PDFFile] = []
     @AppStorage("isDarkMode_v2") private var isDarkMode = true
     @State private var selectedTab = 0
@@ -3820,6 +3822,7 @@ extension ContentView {
 
 struct AITabView: View {
     @Binding var selectedFiles: [ContentView.PDFFile]
+    @Environment(\.modelContext) private var databaseContext
     @Binding var summaryType: SummaryType
     @Binding var summaryText: String
     @Binding var isSummarizing: Bool
@@ -4446,16 +4449,10 @@ struct AITabView: View {
                             .textFieldStyle(.roundedBorder)
                             .disabled(isThinking || selectedFiles.isEmpty)
                             .onSubmit {
-                                Task {
-                                    await performQnA()
-                                }
+                                startQnA()
                             }
 
-                        Button(action: {
-                            Task {
-                                await performQnA()
-                            }
-                        }) {
+                        Button(action: startQnA) {
                             if isThinking {
                                 ProgressView().controlSize(.small)
                             } else {
@@ -5741,8 +5738,16 @@ struct AITabView: View {
         return chunks
     }
 
+    // MARK: - Q&A Helper
+    func startQnA() {
+        let context = databaseContext
+        Task {
+            await performQnA(context: context)
+        }
+    }
+
     // MARK: - Q&A Function
-    func performQnA() async {
+    func performQnA(context: ModelContext) async {
         guard !qnaInput.isEmpty, !selectedFiles.isEmpty else { return }
 
         let question = qnaInput
@@ -5755,7 +5760,7 @@ struct AITabView: View {
 
         // Route to appropriate mode
         if useDeepMode {
-            await performDeepQnA(question: question, checkedFiles: checkedFiles)
+            await performDeepQnA(question: question, checkedFiles: checkedFiles, context: context)
         } else {
             await performFastQnA(question: question, checkedFiles: checkedFiles)
         }
@@ -5858,13 +5863,13 @@ struct AITabView: View {
     }
 
     // MARK: - Deep Q&A Mode (Smart Chunk Search)
-    func performDeepQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
+    func performDeepQnA(question: String, checkedFiles: [ContentView.PDFFile], context: ModelContext) async {
         if #available(macOS 26.0, *) {
             // Deep mode: chunk entire document(s) and score by relevance
             if checkedFiles.count > 1 {
-                await performDeepMultiDocQnA(question: question, checkedFiles: checkedFiles)
+                await performDeepMultiDocQnA(question: question, checkedFiles: checkedFiles, context: context)
             } else {
-                await performDeepSingleDocQnA(question: question, checkedFiles: checkedFiles)
+                await performDeepSingleDocQnA(question: question, checkedFiles: checkedFiles, context: context)
             }
         } else {
             chatHistory.append((role: "System", content: "Deep Q&A mode requires macOS 26+"))
@@ -5873,34 +5878,87 @@ struct AITabView: View {
 
     // Deep mode for single document
     @available(macOS 26.0, *)
-    func performDeepSingleDocQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
+    func performDeepSingleDocQnA(question: String, checkedFiles: [ContentView.PDFFile], context: ModelContext) async {
         guard let pdfURL = checkedFiles.first?.url,
               let doc = PDFDocument(url: pdfURL) else {
             chatHistory.append((role: "System", content: "Error: Could not load PDF"))
             return
         }
         
-        // 1. Indexing (True RAG)
-        // Clear previous index to ensure fresh state for single-doc query
-        // In a real app, we might cache this by URL, but for now we re-index on demand for simplicity
-        RAGEngine.shared.clearIndex()
-        
         await MainActor.run {
              chatHistory.append((role: "System", content: "Thinking..."))
         }
 
-        for i in 0..<doc.pageCount {
-            if let page = doc.page(at: i), let pageText = page.string {
-                // Determine if we need to clean the text
-                let cleanedPageText = cleanTextForSummarization(pageText)
-                if !cleanedPageText.isEmpty {
-                     await RAGEngine.shared.indexDocument(text: cleanedPageText, sourceName: doc.documentURL?.lastPathComponent ?? "Current Document", pageIndex: i + 1)
+        // 1. Resolve GhostPDF (Persistent Identity)
+        let filePath = pdfURL.path
+        var ghostPDF: GhostPDF?
+        
+        let descriptor = FetchDescriptor<GhostPDF>(predicate: #Predicate { $0.realFilePath == filePath })
+        if let existing = try? context.fetch(descriptor).first {
+            ghostPDF = existing
+        } else {
+            let newPDF = GhostPDF(
+                realFilePath: filePath,
+                originalFilename: pdfURL.lastPathComponent,
+                fileSize: 0
+            )
+            context.insert(newPDF)
+            try? context.save()
+            ghostPDF = newPDF
+        }
+        
+        let currentPDF = ghostPDF!
+        
+        if !currentPDF.isIndexed {
+            await MainActor.run {
+                chatHistory.append((role: "System", content: "Indexing document for the first time..."))
+            }
+        } else {
+             // Self-healing: Check for "Page 0" corruption from previous version
+             let hasCorruptChunks = currentPDF.chunks.contains { $0.pageIndex == 0 }
+             if hasCorruptChunks {
+                 print("⚠️ Detected corrupt 'Page 0' citations. Re-indexing document...")
+                 await MainActor.run {
+                     chatHistory.append((role: "System", content: "Upgrading index for better citations..."))
+                 }
+                 
+                 // Delete bad chunks
+                 for chunk in currentPDF.chunks {
+                     context.delete(chunk)
+                 }
+                 currentPDF.chunks.removeAll()
+                 try? context.save() // Commit deletion immediately
+             }
+        }
+        
+        // Re-check isIndexed (it will be false if we just wiped it)
+        if !currentPDF.isIndexed {
+            
+            // ALWAYS iterate pages to ensure accurate page numbers for citations
+            // Do not use doc.string as it lumps everything into "Page 0"
+            for i in 0..<doc.pageCount {
+                if let page = doc.page(at: i), let pageText = page.string {
+                    let cleanedPageText = cleanTextForSummarization(pageText)
+                    if !cleanedPageText.isEmpty {
+                        await RAGEngine.shared.indexDocument(
+                            text: cleanedPageText,
+                            sourceName: doc.documentURL?.lastPathComponent ?? "Current Document",
+                            pageIndex: i + 1, // 1-based index
+                            ghostPDF: currentPDF,
+                            context: context
+                        )
+                    }
                 }
             }
         }
         
-        // 2. Retrieval using Embeddings
-        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(question: question, limit: 10) // Increased limit for better context
+        // 2. Retrieve relevant chunks
+        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(
+            question: question,
+            limit: 10,
+            context: context,
+            pdfs: [currentPDF]
+        )
         
         if relevantChunks.isEmpty {
             chatHistory.append((role: "System", content: "I couldn't find any relevant sections in the document to answer your question."))
@@ -5948,31 +6006,83 @@ struct AITabView: View {
 
     // Deep mode for multiple documents
     @available(macOS 26.0, *)
-    func performDeepMultiDocQnA(question: String, checkedFiles: [ContentView.PDFFile]) async {
-        // Clear index for fresh multi-doc search
-        RAGEngine.shared.clearIndex()
+    func performDeepMultiDocQnA(question: String, checkedFiles: [ContentView.PDFFile], context: ModelContext) async {
+        // No need to clear index anymore!
         
         await MainActor.run {
              chatHistory.append((role: "System", content: "Thinking..."))
         }
 
+        var resolvedPDFs: [GhostPDF] = []
+
         // 1. Index all documents
         for file in checkedFiles {
             if Task.isCancelled { return }
-            guard let doc = PDFDocument(url: file.url) else { continue }
+            
+            // Resolve GhostPDF
+            let filePath = file.url.path
+            var ghostPDF: GhostPDF?
+            
+            let descriptor = FetchDescriptor<GhostPDF>(predicate: #Predicate { $0.realFilePath == filePath })
+            if let existing = try? context.fetch(descriptor).first {
+                ghostPDF = existing
+            } else {
+                let newPDF = GhostPDF(
+                    realFilePath: filePath,
+                    originalFilename: file.url.lastPathComponent,
+                    fileSize: 0
+                )
+                context.insert(newPDF)
+                try? context.save()
+                ghostPDF = newPDF
+            }
+            
+            guard let currentPDF = ghostPDF else { continue }
+            resolvedPDFs.append(currentPDF)
+            
+            if !currentPDF.isIndexed {
+                 // proceed to index
+            } else {
+                 // Self-healing: Check for "Page 0" corruption from previous version
+                 let hasCorruptChunks = currentPDF.chunks.contains { $0.pageIndex == 0 }
+                 if hasCorruptChunks {
+                     print("⚠️ Detected corrupt 'Page 0' citations in \(currentPDF.originalFilename). Re-indexing...")
+                     // Delete bad chunks
+                     for chunk in currentPDF.chunks {
+                         context.delete(chunk)
+                     }
+                     currentPDF.chunks.removeAll()
+                     try? context.save()
+                 }
+            }
 
-            for i in 0..<doc.pageCount {
-                if let page = doc.page(at: i), let pageText = page.string {
-                    let cleanedPageText = cleanTextForSummarization(pageText)
-                    if !cleanedPageText.isEmpty {
-                         await RAGEngine.shared.indexDocument(text: cleanedPageText, sourceName: file.url.lastPathComponent, pageIndex: i + 1)
+            if !currentPDF.isIndexed {
+                guard let doc = PDFDocument(url: file.url) else { continue }
+
+                for i in 0..<doc.pageCount {
+                    if let page = doc.page(at: i), let pageText = page.string {
+                        let cleanedPageText = cleanTextForSummarization(pageText)
+                        if !cleanedPageText.isEmpty {
+                             await RAGEngine.shared.indexDocument(
+                                text: cleanedPageText,
+                                sourceName: file.url.lastPathComponent,
+                                pageIndex: i + 1,
+                                ghostPDF: currentPDF,
+                                context: context
+                            )
+                        }
                     }
                 }
             }
         }
         
         // 2. Retrieve relevant chunks across ALL documents
-        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(question: question, limit: 15) // Higher limit for multi-doc
+        let relevantChunks = RAGEngine.shared.retrieveRelevantChunks(
+            question: question,
+            limit: 15,
+            context: context,
+            pdfs: resolvedPDFs
+        )
         
         if relevantChunks.isEmpty {
             chatHistory.append((role: "System", content: "I couldn't find any relevant sections in the documents to answer your question."))

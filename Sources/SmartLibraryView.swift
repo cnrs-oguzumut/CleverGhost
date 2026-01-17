@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct SmartLibraryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.modelContext) private var databaseContext
     @Query(sort: \GhostPDF.createdAt, order: .reverse) private var allPDFs: [GhostPDF]
     @StateObject private var libraryManager = GhostLibraryManager.shared
 
@@ -421,7 +421,7 @@ struct SmartLibraryView: View {
             }
             Button("Re-analyze") {
                 Task {
-                    await libraryManager.reanalyzeGhostPDF(pdf, context: modelContext)
+                    await libraryManager.reanalyzeGhostPDF(pdf, context: databaseContext)
                 }
             }
             Divider()
@@ -433,7 +433,7 @@ struct SmartLibraryView: View {
                 NSPasteboard.general.setString(pdf.originalFilename, forType: .string)
             }
             Button("Rename File to Match Title") {
-                libraryManager.renameFileToMatchTitle(pdf, context: modelContext)
+                libraryManager.renameFileToMatchTitle(pdf, context: databaseContext)
             }
             Divider()
             Button("Delete from Library", role: .destructive) {
@@ -542,7 +542,7 @@ struct SmartLibraryView: View {
     private func bulkRenameSelected() {
         let selectedDocs = allPDFs.filter { selectedPDFIDs.contains($0.id) }
         for pdf in selectedDocs {
-            libraryManager.renameFileToMatchTitle(pdf, context: modelContext)
+            libraryManager.renameFileToMatchTitle(pdf, context: databaseContext)
         }
     }
 
@@ -561,7 +561,7 @@ struct SmartLibraryView: View {
             let pdfURLs = urls.filter { $0.pathExtension.lowercased() == "pdf" }
 
             if !pdfURLs.isEmpty {
-                try? await libraryManager.ingestPDFs(urls: pdfURLs, context: modelContext)
+                try? await libraryManager.ingestPDFs(urls: pdfURLs, context: databaseContext)
             }
         }
 
@@ -590,7 +590,7 @@ struct SmartLibraryView: View {
         panel.begin { response in
             if response == .OK {
                 Task {
-                    try? await libraryManager.ingestPDFs(urls: panel.urls, context: modelContext)
+                    try? await libraryManager.ingestPDFs(urls: panel.urls, context: databaseContext)
                 }
             }
         }
@@ -640,7 +640,7 @@ struct SmartLibraryView: View {
         withAnimation {
             let selectedDocs = allPDFs.filter { selectedPDFIDs.contains($0.id) }
             for pdf in selectedDocs {
-                try? libraryManager.deleteGhostPDF(pdf, context: modelContext)
+                try? libraryManager.deleteGhostPDF(pdf, context: databaseContext)
             }
             selectedPDFIDs.removeAll()
             lastSelectedID = nil
@@ -649,7 +649,7 @@ struct SmartLibraryView: View {
     
     private func deletePDF(_ pdf: GhostPDF) {
         withAnimation {
-            try? libraryManager.deleteGhostPDF(pdf, context: modelContext)
+            try? libraryManager.deleteGhostPDF(pdf, context: databaseContext)
             selectedPDFIDs.remove(pdf.id)
         }
     }
@@ -662,7 +662,7 @@ struct SmartLibraryView: View {
     private func checkForDuplicates() {
         Task {
             do {
-                let (count, report, _, allIDs, groups) = try await libraryManager.scanForDuplicates(context: modelContext)
+                let (count, report, _, allIDs, groups) = try await libraryManager.scanForDuplicates(context: databaseContext)
                 
                 await MainActor.run {
                     duplicateCount = count
@@ -694,7 +694,7 @@ struct SmartLibraryView: View {
     private func cleanDuplicates() {
         Task {
             do {
-                let cleanedCount = try await libraryManager.cleanDuplicates(context: modelContext)
+                let cleanedCount = try await libraryManager.cleanDuplicates(context: databaseContext)
                 duplicateIDs.removeAll()
                 duplicateMap.removeAll()
                 duplicateCount = 0
@@ -710,7 +710,7 @@ struct SmartLibraryView: View {
 
     private func reconstructLibrary() {
         do {
-            let count = try libraryManager.reconstructLibrary(context: modelContext)
+            let count = try libraryManager.reconstructLibrary(context: databaseContext)
             reconstructionResult = "Library reconstruction complete.\n\nRemoved \(count) orphan file(s) that were taking up space but not in your library."
             showingReconstructionAlert = true
         } catch {

@@ -52,6 +52,12 @@ class GhostPDF {
     var isProcessed: Bool {
         status == .done
     }
+
+    @Relationship(deleteRule: .cascade, inverse: \SearchChunk.pdf) var chunks: [SearchChunk] = []
+    
+    var isIndexed: Bool {
+        !chunks.isEmpty
+    }
 }
 
 // MARK: - PDF Categories
